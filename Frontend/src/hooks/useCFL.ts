@@ -1,6 +1,6 @@
 'use client';
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useSendTransaction } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { CFL_ABI } from '@/abis/CFL';
 import { CONTRACT_ADDRESSES } from '@/shared/constants';
 import { Address } from 'viem';
@@ -162,14 +162,16 @@ export function useCFLOwner() {
 
 /**
  * Deposit native tokens into the contract
- * Note: This uses sendTransaction since deposit() is payable
+ * Note: This uses writeContract to call the deposit() payable function
  */
 export function useDeposit() {
-  const { data: hash, sendTransaction, isPending, error } = useSendTransaction();
+  const { data: hash, writeContract, isPending, error } = useWriteContract();
   
   const deposit = (value: bigint) => {
-    sendTransaction({
-      to: CFL_ADDRESS,
+    writeContract({
+      address: CFL_ADDRESS,
+      abi: CFL_ABI,
+      functionName: 'deposit',
       value,
     });
   };

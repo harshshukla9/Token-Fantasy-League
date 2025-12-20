@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Crown, Star, Check } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, Crown, Star, Check, Clock, Trophy } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { parseEther } from 'viem';
 import { useDepositWithStatus } from '@/hooks/useCFL';
+import { LobbyLeaderboard } from './LobbyLeaderboard';
+import { formatDateTime, formatDuration, calculateEndTime, simulateCurrentPrice } from '@/shared/utils';
 
 export interface Cryptocurrency {
   id: string;
@@ -14,23 +16,23 @@ export interface Cryptocurrency {
   change24h: number;
 }
 
-// Available cryptocurrencies to choose from
+// Available cryptocurrencies to choose from - Updated with real-time prices
 const availableCryptos: Cryptocurrency[] = [
-  { id: 'btc', symbol: 'BTC', name: 'Bitcoin', price: 43250, change24h: 2.5 },
-  { id: 'eth', symbol: 'ETH', name: 'Ethereum', price: 2650, change24h: 1.8 },
-  { id: 'bnb', symbol: 'BNB', name: 'Binance Coin', price: 315, change24h: -0.5 },
-  { id: 'sol', symbol: 'SOL', name: 'Solana', price: 98, change24h: 5.2 },
-  { id: 'ada', symbol: 'ADA', name: 'Cardano', price: 0.52, change24h: 1.2 },
-  { id: 'xrp', symbol: 'XRP', name: 'Ripple', price: 0.62, change24h: -1.1 },
-  { id: 'dot', symbol: 'DOT', name: 'Polkadot', price: 7.2, change24h: 3.4 },
+  { id: 'btc', symbol: 'BTC', name: 'Bitcoin', price: 88150, change24h: 2.5 },
+  { id: 'eth', symbol: 'ETH', name: 'Ethereum', price: 2977.8, change24h: 1.8 },
+  { id: 'bnb', symbol: 'BNB', name: 'Binance Coin', price: 851.85, change24h: -0.5 },
+  { id: 'sol', symbol: 'SOL', name: 'Solana', price: 126.10, change24h: 5.2 },
+  { id: 'ada', symbol: 'ADA', name: 'Cardano', price: 0.38, change24h: 1.2 },
+  { id: 'xrp', symbol: 'XRP', name: 'Ripple', price: 1.95, change24h: -1.1 },
+  { id: 'dot', symbol: 'DOT', name: 'Polkadot', price: 1.85, change24h: 3.4 },
   { id: 'matic', symbol: 'MATIC', name: 'Polygon', price: 0.85, change24h: 2.1 },
-  { id: 'avax', symbol: 'AVAX', name: 'Avalanche', price: 36, change24h: 4.3 },
-  { id: 'link', symbol: 'LINK', name: 'Chainlink', price: 14.5, change24h: 1.5 },
-  { id: 'ltc', symbol: 'LTC', name: 'Litecoin', price: 72, change24h: -0.8 },
-  { id: 'atom', symbol: 'ATOM', name: 'Cosmos', price: 9.8, change24h: 2.7 },
-  { id: 'algo', symbol: 'ALGO', name: 'Algorand', price: 0.18, change24h: 1.9 },
-  { id: 'vet', symbol: 'VET', name: 'VeChain', price: 0.03, change24h: 0.6 },
-  { id: 'icp', symbol: 'ICP', name: 'Internet Computer', price: 12.3, change24h: -2.1 },
+  { id: 'avax', symbol: 'AVAX', name: 'Avalanche', price: 12.32, change24h: 4.3 },
+  { id: 'link', symbol: 'LINK', name: 'Chainlink', price: 13.5, change24h: 1.5 },
+  { id: 'ltc', symbol: 'LTC', name: 'Litecoin', price: 79, change24h: -0.8 },
+  { id: 'atom', symbol: 'ATOM', name: 'Cosmos', price: 1.98, change24h: 2.7 },
+  { id: 'algo', symbol: 'ALGO', name: 'Algorand', price: 0.115, change24h: 1.9 },
+  { id: 'vet', symbol: 'VET', name: 'VeChain', price: 0.0107, change24h: 0.6 },
+  { id: 'icp', symbol: 'ICP', name: 'Internet Computer', price: 2.96, change24h: -2.1 },
 ];
 
 interface TeamSelectionModalProps {
@@ -44,6 +46,8 @@ interface TeamSelectionModalProps {
   lobbyName: string;
   entryFee: number;
   lobbyId?: string;
+  startTime?: Date | string;
+  interval?: number;
 }
 
 export function TeamSelectionModal({
@@ -53,12 +57,37 @@ export function TeamSelectionModal({
   lobbyName,
   entryFee,
   lobbyId,
+  startTime,
+  interval,
 }: TeamSelectionModalProps) {
   const [selectedCryptos, setSelectedCryptos] = useState<string[]>([]);
   const [captain, setCaptain] = useState<string | null>(null);
   const [viceCaptain, setViceCaptain] = useState<string | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [priceUpdateTime, setPriceUpdateTime] = useState(Date.now());
   const { address, isConnected } = useAccount();
   const { deposit, isPending, isConfirming, isSuccess, error } = useDepositWithStatus();
+
+  // Update prices every 10 seconds to simulate real-time changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPriceUpdateTime(Date.now());
+    }, 10000); // Update every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Get current prices with randomization based on time
+  // Prices update every 10 seconds to show real-time changes
+  const currentPrices = useMemo(() => {
+    // Use a base timestamp that represents when prices started tracking
+    // This ensures consistent simulation across all coins
+    const baseTimestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // 24 hours ago
+    return availableCryptos.map(crypto => ({
+      ...crypto,
+      currentPrice: simulateCurrentPrice(crypto.price, crypto.change24h, baseTimestamp, 0.04),
+    }));
+  }, [priceUpdateTime]);
 
   // Reset state when modal closes
   const handleClose = () => {
@@ -105,6 +134,7 @@ export function TeamSelectionModal({
         lobbyId: lobbyId || '',
         lobbyName: lobbyName,
         entryFee: entryFee,
+        userAddress: address || '',
         selectedCryptos: selectedCryptos.map((cryptoId) => {
           const crypto = availableCryptos.find((c) => c.id === cryptoId);
           return {
@@ -117,8 +147,8 @@ export function TeamSelectionModal({
             isViceCaptain: cryptoId === viceCaptain,
           };
         }),
-        captain,
-        viceCaptain,
+        captain: captain || '',
+        viceCaptain: viceCaptain || '',
         joinedAt: new Date().toISOString(),
       };
 
@@ -142,13 +172,20 @@ export function TeamSelectionModal({
         console.error('Failed to save team to localStorage:', error);
       }
 
+      // Call onConfirm callback first
       onConfirm({
         selectedCryptos,
-        captain,
-        viceCaptain,
+        captain: captain || '',
+        viceCaptain: viceCaptain || '',
       });
+
+      // Close the team selection modal
+      // The parent component (LobbiesList) will handle showing the leaderboard
+      setTimeout(() => {
+        handleClose();
+      }, 300);
     }
-  }, [isSuccess, lobbyId, lobbyName, entryFee, selectedCryptos, captain, viceCaptain, onConfirm]);
+  }, [isSuccess, lobbyId, lobbyName, entryFee, selectedCryptos, captain, viceCaptain, address, onConfirm]);
 
   const handleConfirm = () => {
     if (selectedCryptos.length !== 6) {
@@ -171,14 +208,65 @@ export function TeamSelectionModal({
     // Convert entryFee to wei and deposit
     try {
       const depositAmount = parseEther(entryFee.toString());
+      console.log('Depositing amount:', depositAmount.toString(), 'wei');
       deposit(depositAmount);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to parse deposit amount:', error);
-      alert('Invalid deposit amount. Please try again.');
+      alert(`Invalid deposit amount: ${error?.message || 'Unknown error'}. Please try again.`);
     }
   };
 
-  const getCrypto = (id: string) => availableCryptos.find((c) => c.id === id);
+  const getCrypto = (id: string) => currentPrices.find((c) => c.id === id) || availableCryptos.find((c) => c.id === id);
+
+  // Generate dummy price data for line graph
+  const generatePriceData = (basePrice: number, change24h: number) => {
+    const points = 20;
+    const data: number[] = [];
+    const trend = change24h > 0 ? 1 : -1;
+    
+    for (let i = 0; i < points; i++) {
+      const variation = (Math.random() - 0.5) * 0.1; // Random variation
+      const trendFactor = (i / points) * (change24h / 100) * trend;
+      const price = basePrice * (1 + variation + trendFactor);
+      data.push(price);
+    }
+    
+    return data;
+  };
+
+  // Render mini line graph
+  const renderMiniGraph = (priceData: number[], isPositive: boolean) => {
+    if (priceData.length === 0) return null;
+    
+    const width = 100;
+    const height = 30;
+    const padding = 2;
+    const graphWidth = width - padding * 2;
+    const graphHeight = height - padding * 2;
+    
+    const minPrice = Math.min(...priceData);
+    const maxPrice = Math.max(...priceData);
+    const priceRange = maxPrice - minPrice || 1;
+    
+    const points = priceData.map((price, index) => {
+      const x = padding + (index / (priceData.length - 1)) * graphWidth;
+      const y = padding + graphHeight - ((price - minPrice) / priceRange) * graphHeight;
+      return `${x},${y}`;
+    }).join(' ');
+    
+    return (
+      <svg width={width} height={height} className="w-full h-8">
+        <polyline
+          points={points}
+          fill="none"
+          stroke={isPositive ? '#00E5FF' : '#ff4444'}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -190,6 +278,22 @@ export function TeamSelectionModal({
             <p className="text-sm text-gray-400 mt-1">
               Entry Fee: <span className="text-white font-semibold">{entryFee} tokens</span>
             </p>
+            {startTime && interval && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                <Clock className="h-3 w-3" />
+                <span>
+                  Duration: <span className="text-white">{formatDuration(interval)}</span>
+                </span>
+                <span className="text-gray-500">•</span>
+                <span>
+                  Starts: <span className="text-white">{formatDateTime(startTime)}</span>
+                </span>
+                <span className="text-gray-500">•</span>
+                <span>
+                  Ends: <span className="text-white">{formatDateTime(calculateEndTime(startTime, interval))}</span>
+                </span>
+              </div>
+            )}
           </div>
           <button
             onClick={handleClose}
@@ -276,7 +380,7 @@ export function TeamSelectionModal({
           <div>
             <h3 className="text-lg font-semibold text-white mb-3">Available Cryptocurrencies</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              {availableCryptos.map((crypto) => {
+              {currentPrices.map((crypto) => {
                 const isSelected = selectedCryptos.includes(crypto.id);
                 const isCap = captain === crypto.id;
                 const isVC = viceCaptain === crypto.id;
@@ -308,8 +412,8 @@ export function TeamSelectionModal({
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mb-1">{crypto.name}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">${crypto.price.toLocaleString()}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-gray-500">${crypto.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       <span
                         className={`text-xs font-semibold ${
                           crypto.change24h >= 0 ? 'text-white' : 'text-gray-500'
@@ -318,6 +422,10 @@ export function TeamSelectionModal({
                         {crypto.change24h >= 0 ? '+' : ''}
                         {crypto.change24h.toFixed(1)}%
                       </span>
+                    </div>
+                    {/* Mini Line Graph */}
+                    <div className="mt-2 mb-2">
+                      {renderMiniGraph(generatePriceData(crypto.currentPrice, crypto.change24h), crypto.change24h >= 0)}
                     </div>
                     {isCap && (
                       <div className="mt-2 flex items-center gap-1 text-xs text-white">
@@ -356,9 +464,22 @@ export function TeamSelectionModal({
             )}
             {isPending && <span className="text-yellow-400">Preparing deposit transaction...</span>}
             {isConfirming && <span className="text-yellow-400">Waiting for deposit confirmation...</span>}
-            {error && <span className="text-red-400">Deposit failed. Please try again.</span>}
+            {error && (
+              <span className="text-red-400">
+                Deposit failed: {error.message || 'Unknown error'}. Please try again.
+              </span>
+            )}
           </div>
           <div className="flex gap-3">
+            {lobbyId && (
+              <button
+                onClick={() => setShowLeaderboard(true)}
+                className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+              >
+                <Trophy className="h-4 w-4" />
+                Leaderboard
+              </button>
+            )}
             <button
               onClick={handleClose}
               className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
@@ -388,6 +509,18 @@ export function TeamSelectionModal({
           </div>
         </div>
       </div>
+
+      {/* Lobby Leaderboard Modal */}
+      {lobbyId && (
+        <LobbyLeaderboard
+          isOpen={showLeaderboard}
+          onClose={() => setShowLeaderboard(false)}
+          lobbyId={lobbyId}
+          lobbyName={lobbyName}
+          startTime={startTime}
+          interval={interval}
+        />
+      )}
     </div>
   );
 }

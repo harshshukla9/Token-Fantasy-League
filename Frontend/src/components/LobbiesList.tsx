@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Users, DollarSign, Coins, ArrowRight } from 'lucide-react';
+import { Users, DollarSign, Coins, ArrowRight, Clock } from 'lucide-react';
 import { TeamSelectionModal } from './TeamSelectionModal';
+import { LobbyLeaderboard } from './LobbyLeaderboard';
+import { formatDateTime, formatDuration, calculateEndTime } from '@/shared/utils';
 
 export interface Lobby {
   id: string;
@@ -13,6 +15,8 @@ export interface Lobby {
   numberOfCoins: number; // Number of cryptocurrencies in this lobby
   prizePool: number; // Total prize pool
   status: 'open' | 'full' | 'closed';
+  startTime: Date | string; // Pool start time
+  interval: number; // Duration in seconds (e.g., 7 days = 604800)
 }
 
 // Mock data - replace with actual API call
@@ -26,6 +30,8 @@ const mockLobbies: Lobby[] = [
     numberOfCoins: 8,
     prizePool: 225,
     status: 'open',
+    startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+    interval: 7 * 24 * 60 * 60, // 7 days in seconds
   },
   {
     id: '2',
@@ -36,6 +42,8 @@ const mockLobbies: Lobby[] = [
     numberOfCoins: 8,
     prizePool: 128,
     status: 'open',
+    startTime: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour from now
+    interval: 7 * 24 * 60 * 60, // 7 days in seconds
   },
   {
     id: '3',
@@ -46,6 +54,8 @@ const mockLobbies: Lobby[] = [
     numberOfCoins: 8,
     prizePool: 156,
     status: 'open',
+    startTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
+    interval: 3 * 24 * 60 * 60, // 3 days in seconds
   },
   {
     id: '4',
@@ -56,6 +66,8 @@ const mockLobbies: Lobby[] = [
     numberOfCoins: 8,
     prizePool: 100,
     status: 'open',
+    startTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
+    interval: 14 * 24 * 60 * 60, // 14 days in seconds
   },
   {
     id: '5',
@@ -66,6 +78,8 @@ const mockLobbies: Lobby[] = [
     numberOfCoins: 8,
     prizePool: 300,
     status: 'full',
+    startTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // Started 2 days ago
+    interval: 7 * 24 * 60 * 60, // 7 days in seconds
   },
   {
     id: '6',
@@ -76,6 +90,8 @@ const mockLobbies: Lobby[] = [
     numberOfCoins: 8,
     prizePool: 48,
     status: 'open',
+    startTime: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours from now
+    interval: 7 * 24 * 60 * 60, // 7 days in seconds
   },
 ];
 
@@ -148,6 +164,20 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
         </div>
       </td>
       <td className="px-6 py-4">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-gray-400" />
+            <span className="text-xs text-gray-400">Duration: {formatDuration(lobby.interval)}</span>
+          </div>
+          <div className="text-xs text-gray-500">
+            Starts: {formatDateTime(lobby.startTime)}
+          </div>
+          <div className="text-xs text-gray-500">
+            Ends: {formatDateTime(calculateEndTime(lobby.startTime, lobby.interval))}
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4">
         <button
           onClick={() => onJoin && onJoin(lobby.id)}
           disabled={!isOpen}
@@ -179,6 +209,8 @@ export function LobbiesList() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'full' | 'closed'>('all');
   const [selectedLobby, setSelectedLobby] = useState<Lobby | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardLobby, setLeaderboardLobby] = useState<Lobby | null>(null);
 
   const handleJoin = (lobbyId: string) => {
     const lobby = lobbies.find((l) => l.id === lobbyId);
@@ -203,7 +235,13 @@ export function LobbiesList() {
       lobbyId: selectedLobby?.id,
       team,
     });
-    alert(`Joining ${selectedLobby?.name} with your team...`);
+    
+    // Show leaderboard after team is confirmed
+    if (selectedLobby) {
+      setLeaderboardLobby(selectedLobby);
+      setShowLeaderboard(true);
+    }
+    
     handleCloseModal();
   };
 
@@ -290,6 +328,12 @@ export function LobbiesList() {
                     Prize Pool
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Time Period
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300 uppercase tracking-wider">
                     Action
                   </th>
                 </tr>
@@ -326,6 +370,23 @@ export function LobbiesList() {
           lobbyName={selectedLobby.name}
           entryFee={selectedLobby.depositAmount}
           lobbyId={selectedLobby.id}
+          startTime={selectedLobby.startTime}
+          interval={selectedLobby.interval}
+        />
+      )}
+
+      {/* Lobby Leaderboard Modal */}
+      {leaderboardLobby && (
+        <LobbyLeaderboard
+          isOpen={showLeaderboard}
+          onClose={() => {
+            setShowLeaderboard(false);
+            setLeaderboardLobby(null);
+          }}
+          lobbyId={leaderboardLobby.id}
+          lobbyName={leaderboardLobby.name}
+          startTime={leaderboardLobby.startTime}
+          interval={leaderboardLobby.interval}
         />
       )}
     </div>
