@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, Crown, Star, Check, Clock, Trophy } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { parseEther } from 'viem';
@@ -78,7 +78,7 @@ export function TeamSelectionModal({
   }, []);
 
   // Get current prices with randomization based on time
-  // Prices update every 10 seconds to show real-time changes
+  // Prices update every second to show real-time changes
   const currentPrices = useMemo(() => {
     // Use a base timestamp that represents when prices started tracking
     // This ensures consistent simulation across all coins
@@ -90,40 +90,12 @@ export function TeamSelectionModal({
   }, [priceUpdateTime]);
 
   // Reset state when modal closes
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setSelectedCryptos([]);
     setCaptain(null);
     setViceCaptain(null);
     onClose();
-  };
-
-  if (!isOpen) return null;
-
-  const handleCryptoSelect = (cryptoId: string) => {
-    if (selectedCryptos.includes(cryptoId)) {
-      // Deselect
-      setSelectedCryptos(selectedCryptos.filter((id) => id !== cryptoId));
-      if (captain === cryptoId) setCaptain(null);
-      if (viceCaptain === cryptoId) setViceCaptain(null);
-    } else {
-      // Select (max 6)
-      if (selectedCryptos.length < 6) {
-        setSelectedCryptos([...selectedCryptos, cryptoId]);
-      }
-    }
-  };
-
-  const handleSetCaptain = (cryptoId: string) => {
-    if (!selectedCryptos.includes(cryptoId)) return;
-    if (viceCaptain === cryptoId) setViceCaptain(null);
-    setCaptain(captain === cryptoId ? null : cryptoId);
-  };
-
-  const handleSetViceCaptain = (cryptoId: string) => {
-    if (!selectedCryptos.includes(cryptoId)) return;
-    if (captain === cryptoId) setCaptain(null);
-    setViceCaptain(viceCaptain === cryptoId ? null : cryptoId);
-  };
+  }, [onClose]);
 
   // Handle deposit success - proceed with team confirmation
   useEffect(() => {
@@ -185,7 +157,37 @@ export function TeamSelectionModal({
         handleClose();
       }, 300);
     }
-  }, [isSuccess, lobbyId, lobbyName, entryFee, selectedCryptos, captain, viceCaptain, address, onConfirm]);
+  }, [isSuccess, lobbyId, lobbyName, entryFee, selectedCryptos, captain, viceCaptain, address, onConfirm, handleClose]);
+
+  if (!isOpen) return null;
+
+  const handleCryptoSelect = (cryptoId: string) => {
+    if (selectedCryptos.includes(cryptoId)) {
+      // Deselect
+      setSelectedCryptos(selectedCryptos.filter((id) => id !== cryptoId));
+      if (captain === cryptoId) setCaptain(null);
+      if (viceCaptain === cryptoId) setViceCaptain(null);
+    } else {
+      // Select (max 6)
+      if (selectedCryptos.length < 6) {
+        setSelectedCryptos([...selectedCryptos, cryptoId]);
+      }
+    }
+  };
+
+  const handleSetCaptain = (cryptoId: string) => {
+    if (!selectedCryptos.includes(cryptoId)) return;
+    if (viceCaptain === cryptoId) setViceCaptain(null);
+    setCaptain(captain === cryptoId ? null : cryptoId);
+  };
+
+  const handleSetViceCaptain = (cryptoId: string) => {
+    if (!selectedCryptos.includes(cryptoId)) return;
+    if (captain === cryptoId) setCaptain(null);
+    setViceCaptain(viceCaptain === cryptoId ? null : cryptoId);
+  };
+
+  if (!isOpen) return null;
 
   const handleConfirm = () => {
     if (selectedCryptos.length !== 6) {
