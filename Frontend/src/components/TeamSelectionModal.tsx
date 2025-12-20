@@ -68,11 +68,11 @@ export function TeamSelectionModal({
   const { address, isConnected } = useAccount();
   const { deposit, isPending, isConfirming, isSuccess, error } = useDepositWithStatus();
 
-  // Update prices every 10 seconds to simulate real-time changes
+  // Update prices every second to simulate real-time changes
   useEffect(() => {
     const interval = setInterval(() => {
       setPriceUpdateTime(Date.now());
-    }, 10000); // Update every 10 seconds
+    }, 1000); // Update every 1 second
     
     return () => clearInterval(interval);
   }, []);
@@ -304,7 +304,7 @@ export function TeamSelectionModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
           {/* Instructions */}
           <div className="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
             <p className="text-sm text-gray-300 mb-2">

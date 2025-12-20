@@ -32,8 +32,8 @@ export function LobbyLeaderboard({
   useEffect(() => {
     if (isOpen) {
       fetchLeaderboard();
-      // Refresh leaderboard every 10 seconds to match price updates
-      const interval = setInterval(fetchLeaderboard, 10000);
+      // Refresh leaderboard every second to match price updates
+      const interval = setInterval(fetchLeaderboard, 1000);
       return () => clearInterval(interval);
     }
   }, [isOpen, lobbyId]);

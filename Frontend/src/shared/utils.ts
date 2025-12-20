@@ -131,8 +131,8 @@ export function simulateCurrentPrice(
   const timeElapsed = (now - joinTime.getTime()) / (1000 * 60 * 60); // Hours elapsed
   const daysElapsed = timeElapsed / 24;
   
-  // Use time-based seed (updates every 10 seconds) for consistent price changes
-  const timeSeed = Math.floor(now / 10000); // Changes every 10 seconds
+  // Use time-based seed (updates every second) for consistent price changes
+  const timeSeed = Math.floor(now / 1000); // Changes every 1 second
   const cryptoSeed = initialPrice.toString().length + initialChange24h; // Unique per crypto
   
   // Create a pseudo-random number based on time seed and crypto properties
