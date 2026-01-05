@@ -8,7 +8,7 @@ export default function Dashboard() {
             <Navbar />
 
             <ProtectedRoute>
-                <main className="container mx-auto px-4 py-8 max-w-5xl">
+                <main className="container mx-auto px-4 py-8 max-w-6xl">
                     <div className="mb-12 text-center">
                         <h1 className="text-5xl font-bold text-white mb-4">
                             Public Lobbies

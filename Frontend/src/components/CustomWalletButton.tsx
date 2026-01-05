@@ -6,8 +6,8 @@ import { useAccount, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { motion, AnimatePresence } from 'motion/react';
 
-const MONAD_TESTNET_ID = 10143;
-const MONAD_MAINNET_ID = 143;
+const MANTLE_TESTNET_ID = 5003;
+const MANTLE_MAINNET_ID = 5000;
 
 export function CustomWalletButton() {
   const { address, isConnected } = useAccount();
@@ -31,8 +31,8 @@ export function CustomWalletButton() {
   // Check if user is on correct network
   useEffect(() => {
     if (isConnected) {
-      const isOnMonadNetwork = chainId === MONAD_TESTNET_ID || chainId === MONAD_MAINNET_ID;
-      setShowNetworkSwitch(!isOnMonadNetwork);
+      const isOnMantleNetwork = chainId === MANTLE_TESTNET_ID || chainId === MANTLE_MAINNET_ID;
+      setShowNetworkSwitch(!isOnMantleNetwork);
     } else {
       setShowNetworkSwitch(false);
     }
@@ -93,11 +93,11 @@ export function CustomWalletButton() {
   }, [showDropdown]);
 
   const handleSwitchToTestnet = () => {
-    switchChain({ chainId: MONAD_TESTNET_ID });
+    switchChain({ chainId: MANTLE_TESTNET_ID });
   };
 
   const handleSwitchToMainnet = () => {
-    switchChain({ chainId: MONAD_MAINNET_ID });
+    switchChain({ chainId: MANTLE_MAINNET_ID });
   };
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -110,15 +110,15 @@ export function CustomWalletButton() {
   };
 
   if (isConnected && address) {
-    const isOnMonadNetwork = chainId === MONAD_TESTNET_ID || chainId === MONAD_MAINNET_ID;
-    const currentNetworkName = chainId === MONAD_TESTNET_ID ? 'Testnet' : chainId === MONAD_MAINNET_ID ? 'Mainnet' : 'Unknown';
+    const isOnMantleNetwork = chainId === MANTLE_TESTNET_ID || chainId === MANTLE_MAINNET_ID;
+    const currentNetworkName = chainId === MANTLE_TESTNET_ID ? 'Mantle Sepolia Testnet' : chainId === MANTLE_MAINNET_ID ? 'Mantle Mainnet' : 'Unknown';
 
     return (
       <div className="relative flex items-center gap-2 overflow-visible z-[999999]" ref={dropdownRef}>
         {showNetworkSwitch && (
           <motion.button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="group relative px-4 py-2.5 bg-red-500/20 border border-red-500/50 text-red-400 font-semibold rounded-full overflow-hidden transition-all hover:scale-105 hover:bg-red-500/30 cursor-target"
+            className="group relative px-4 py-2.5 bg-red-500/20 border border-red-500/50 text-red-400 font-semibold rounded-full overflow-hidden transition-all hover:scale-105 hover:bg-red-500/30 cursor-target hover:shadow-lg hover:shadow-red-500/20"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -146,9 +146,9 @@ export function CustomWalletButton() {
           ref={buttonRef}
           onClick={() => setShowDropdown(!showDropdown)}
           className={`group relative px-6 py-2.5 font-semibold rounded-full overflow-visible transition-all hover:scale-105 cursor-target ${
-            isOnMonadNetwork
-              ? 'bg-white text-black hover:bg-gray-200'
-              : 'bg-gray-700 text-white hover:bg-gray-600'
+            isOnMantleNetwork
+              ? 'bg-white text-black hover:bg-gray-200 hover:shadow-lg hover:shadow-white/20'
+              : 'bg-gray-700 text-white hover:bg-gray-600 hover:shadow-lg hover:shadow-gray-700/30'
           }`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -168,7 +168,7 @@ export function CustomWalletButton() {
               />
             </svg>
             {formatAddress(address)}
-            {isOnMonadNetwork && (
+            {isOnMantleNetwork && (
               <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
                 {currentNetworkName}
               </span>
@@ -210,8 +210,8 @@ export function CustomWalletButton() {
               <div className="p-4 border-b border-gray-800">
                 <p className="text-xs text-gray-400 mb-1">Connected Wallet</p>
                 <p className="text-sm font-mono text-white break-all">{address}</p>
-                {isOnMonadNetwork && (
-                  <p className="text-xs text-[#00E5FF] mt-2">
+                {isOnMantleNetwork && (
+                  <p className="text-xs text-purple-400 mt-2">
                     Network: {currentNetworkName}
                   </p>
                 )}
@@ -221,51 +221,51 @@ export function CustomWalletButton() {
                 {/* Network Switch Options */}
                 {showNetworkSwitch && (
                   <div className="mb-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-                    <p className="text-xs text-red-400 mb-2 font-semibold">Switch to Monad Network</p>
+                    <p className="text-xs text-red-400 mb-2 font-semibold">Switch to Mantle Network</p>
                     <div className="flex flex-col gap-1">
                       <motion.button
                         onClick={handleSwitchToTestnet}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#00E5FF]/10 rounded-lg transition-colors flex items-center gap-2 border border-[#00E5FF]/20"
+                        className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-purple-500/10 rounded-lg transition-colors flex items-center gap-2 border border-purple-500/20"
                         whileHover={{ x: 4 }}
                       >
-                        <div className="w-2 h-2 rounded-full bg-[#00E5FF]"></div>
-                        Switch to Monad Testnet
+                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                        Switch to Mantle Sepolia Testnet
                       </motion.button>
                       <motion.button
                         onClick={handleSwitchToMainnet}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#4079ff]/10 rounded-lg transition-colors flex items-center gap-2 border border-[#4079ff]/20"
+                        className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-purple-600/10 rounded-lg transition-colors flex items-center gap-2 border border-purple-600/20"
                         whileHover={{ x: 4 }}
                       >
-                        <div className="w-2 h-2 rounded-full bg-[#4079ff]"></div>
-                        Switch to Monad Mainnet
+                        <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                        Switch to Mantle Mainnet
                       </motion.button>
                     </div>
                   </div>
                 )}
 
-                {/* Switch Network Options (when on Monad network) */}
-                {isOnMonadNetwork && (
+                {/* Switch Network Options (when on Mantle network) */}
+                {isOnMantleNetwork && (
                   <div className="mb-2 p-2 bg-gray-800/30 rounded-lg">
                     <p className="text-xs text-gray-400 mb-2">Switch Network</p>
                     <div className="flex flex-col gap-1">
-                      {chainId !== MONAD_TESTNET_ID && (
+                      {chainId !== MANTLE_TESTNET_ID && (
                         <motion.button
                           onClick={handleSwitchToTestnet}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#00E5FF]/10 rounded-lg transition-colors flex items-center gap-2"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-purple-500/10 rounded-lg transition-colors flex items-center gap-2"
                           whileHover={{ x: 4 }}
                         >
-                          <div className="w-2 h-2 rounded-full bg-[#00E5FF]"></div>
-                          Switch to Testnet
+                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                          Switch to Mantle Sepolia Testnet
                         </motion.button>
                       )}
-                      {chainId !== MONAD_MAINNET_ID && (
+                      {chainId !== MANTLE_MAINNET_ID && (
                         <motion.button
                           onClick={handleSwitchToMainnet}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-[#4079ff]/10 rounded-lg transition-colors flex items-center gap-2"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-purple-600/10 rounded-lg transition-colors flex items-center gap-2"
                           whileHover={{ x: 4 }}
                         >
-                          <div className="w-2 h-2 rounded-full bg-[#4079ff]"></div>
-                          Switch to Mainnet
+                          <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                          Switch to Mantle Mainnet
                         </motion.button>
                       )}
                     </div>
@@ -329,7 +329,7 @@ export function CustomWalletButton() {
   return (
     <motion.button
       onClick={openConnectModal}
-      className="group relative px-6 py-2.5 bg-white text-black font-bold rounded-full overflow-hidden transition-all hover:scale-105 hover:bg-gray-200 cursor-target"
+      className="group relative px-6 py-2.5 bg-white text-black font-bold rounded-full overflow-hidden transition-all hover:scale-105 hover:bg-gray-200 cursor-target hover:shadow-lg hover:shadow-white/20"
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
     >

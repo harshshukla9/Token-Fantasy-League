@@ -38,7 +38,7 @@ Leaderboards determine winners.
 ## Pages
 
 - `/` - Landing page
-- `/dashboard` - Dashboard with leaderboard and team management
+- `/lobbies` - Dashboard with leaderboard and team management
 - `/profile/:address` - User profile and statistics
 - `/stress-test` - Stress test interface (admin)
 

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Crown, Star, Check, Clock, Trophy } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { X, Crown, Star, Check, Clock, Trophy, Coins } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { parseEther } from 'viem';
 import { useDepositWithStatus } from '@/hooks/useCFL';
-import { LobbyLeaderboard } from './LobbyLeaderboard';
 import { formatDateTime, formatDuration, calculateEndTime, simulateCurrentPrice } from '@/shared/utils';
 
 export interface Cryptocurrency {
@@ -14,25 +14,25 @@ export interface Cryptocurrency {
   name: string;
   price: number;
   change24h: number;
+  logo?: string;
 }
 
-// Available cryptocurrencies to choose from - Updated with real-time prices
 const availableCryptos: Cryptocurrency[] = [
-  { id: 'btc', symbol: 'BTC', name: 'Bitcoin', price: 88150, change24h: 2.5 },
-  { id: 'eth', symbol: 'ETH', name: 'Ethereum', price: 2977.8, change24h: 1.8 },
-  { id: 'bnb', symbol: 'BNB', name: 'Binance Coin', price: 851.85, change24h: -0.5 },
-  { id: 'sol', symbol: 'SOL', name: 'Solana', price: 126.10, change24h: 5.2 },
-  { id: 'ada', symbol: 'ADA', name: 'Cardano', price: 0.38, change24h: 1.2 },
-  { id: 'xrp', symbol: 'XRP', name: 'Ripple', price: 1.95, change24h: -1.1 },
-  { id: 'dot', symbol: 'DOT', name: 'Polkadot', price: 1.85, change24h: 3.4 },
-  { id: 'matic', symbol: 'MATIC', name: 'Polygon', price: 0.85, change24h: 2.1 },
-  { id: 'avax', symbol: 'AVAX', name: 'Avalanche', price: 12.32, change24h: 4.3 },
-  { id: 'link', symbol: 'LINK', name: 'Chainlink', price: 13.5, change24h: 1.5 },
-  { id: 'ltc', symbol: 'LTC', name: 'Litecoin', price: 79, change24h: -0.8 },
-  { id: 'atom', symbol: 'ATOM', name: 'Cosmos', price: 1.98, change24h: 2.7 },
-  { id: 'algo', symbol: 'ALGO', name: 'Algorand', price: 0.115, change24h: 1.9 },
-  { id: 'vet', symbol: 'VET', name: 'VeChain', price: 0.0107, change24h: 0.6 },
-  { id: 'icp', symbol: 'ICP', name: 'Internet Computer', price: 2.96, change24h: -2.1 },
+  { id: 'btc', symbol: 'BTC', name: 'Bitcoin', price: 88150, change24h: 2.5, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png' },
+  { id: 'eth', symbol: 'ETH', name: 'Ethereum', price: 2977.8, change24h: 1.8, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png' },
+  { id: 'bnb', symbol: 'BNB', name: 'Binance Coin', price: 851.85, change24h: -0.5, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png' },
+  { id: 'sol', symbol: 'SOL', name: 'Solana', price: 126.10, change24h: 5.2, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/2087.png' },
+  { id: 'ada', symbol: 'ADA', name: 'Cardano', price: 0.38, change24h: 1.2, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/2010.png' },
+  { id: 'xrp', symbol: 'XRP', name: 'Ripple', price: 1.95, change24h: -1.1, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/52.png' },
+  { id: 'dot', symbol: 'DOT', name: 'Polkadot', price: 1.85, change24h: 3.4, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/6636.png' },
+  { id: 'matic', symbol: 'MATIC', name: 'Polygon', price: 0.85, change24h: 2.1, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png' },
+  { id: 'avax', symbol: 'AVAX', name: 'Avalanche', price: 12.32, change24h: 4.3, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/5805.png' },
+  { id: 'link', symbol: 'LINK', name: 'Chainlink', price: 13.5, change24h: 1.5, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1975.png' },
+  { id: 'ltc', symbol: 'LTC', name: 'Litecoin', price: 79, change24h: -0.8, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/2.png' },
+  { id: 'atom', symbol: 'ATOM', name: 'Cosmos', price: 1.98, change24h: 2.7, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/3794.png' },
+  { id: 'algo', symbol: 'ALGO', name: 'Algorand', price: 0.115, change24h: 1.9, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/4030.png' },
+  { id: 'vet', symbol: 'VET', name: 'VeChain', price: 0.0107, change24h: 0.6, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/3077.png' },
+  { id: 'icp', symbol: 'ICP', name: 'Internet Computer', price: 2.96, change24h: -2.1, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/8916.png' },
 ];
 
 interface TeamSelectionModalProps {
@@ -49,6 +49,82 @@ interface TeamSelectionModalProps {
   startTime?: Date | string;
   interval?: number;
 }
+function TokenFieldCard({ 
+  crypto, 
+  isCaptain, 
+  isViceCaptain,
+  position 
+}: { 
+  crypto: Cryptocurrency & { currentPrice?: number }; 
+  isCaptain: boolean; 
+  isViceCaptain: boolean;
+  position: number;
+}) {
+  const avatarText = crypto.symbol.slice(0, 2).toUpperCase();
+  
+  return (
+    <div className={`relative w-24 h-28 rounded-xl border-2 transition-all hover:scale-105 ${
+      isCaptain 
+        ? 'border-yellow-400 bg-gradient-to-br from-yellow-400/30 to-yellow-500/20 shadow-lg shadow-yellow-400/40' 
+        : isViceCaptain
+          ? 'border-gray-400 bg-gradient-to-br from-gray-400/30 to-gray-500/20 shadow-lg shadow-gray-400/40'
+          : 'border-green-500/60 bg-gradient-to-br from-green-500/20 to-green-600/10'
+    }`}>
+      {/* Captain/Vice-Captain Badge */}
+      {(isCaptain || isViceCaptain) && (
+        <div className={`absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${
+          isCaptain 
+            ? 'bg-yellow-400 text-black border-2 border-yellow-300' 
+            : 'bg-gray-400 text-black border-2 border-gray-300'
+        }`}>
+          {isCaptain ? 'C' : 'VC'}
+        </div>
+      )}
+      
+      {/* Token Content */}
+      <div className="flex flex-col items-center justify-center h-full p-2">
+        {/* Logo */}
+        {crypto.logo ? (
+          <div className="w-12 h-12 rounded-full flex items-center justify-center mb-2 overflow-hidden bg-gray-800 border-2 border-gray-700">
+            <img 
+              src={crypto.logo} 
+              alt={crypto.symbol}
+              className="w-10 h-10 object-contain"
+              onError={(e) => {
+                // Fallback to text if image fails to load
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                if (target.parentElement) {
+                  target.parentElement.innerHTML = `<span class="text-xs font-bold text-white">${avatarText}</span>`;
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 font-bold text-sm ${
+            isCaptain 
+              ? 'bg-yellow-400/30 text-yellow-200 border-2 border-yellow-400/50' 
+              : isViceCaptain
+                ? 'bg-gray-400/30 text-gray-200 border-2 border-gray-400/50'
+                : 'bg-green-500/30 text-green-200 border-2 border-green-500/50'
+          }`}>
+            {avatarText}
+          </div>
+        )}
+        
+        {/* Token Symbol */}
+        <div className="text-sm font-bold text-white mb-1">
+          {crypto.symbol}
+        </div>
+        
+        {/* Price */}
+        <div className="text-[10px] text-gray-300 text-center leading-tight">
+          ${crypto.currentPrice ? crypto.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 }) : crypto.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function TeamSelectionModal({
   isOpen,
@@ -60,10 +136,10 @@ export function TeamSelectionModal({
   startTime,
   interval,
 }: TeamSelectionModalProps) {
+  const router = useRouter();
   const [selectedCryptos, setSelectedCryptos] = useState<string[]>([]);
   const [captain, setCaptain] = useState<string | null>(null);
   const [viceCaptain, setViceCaptain] = useState<string | null>(null);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [priceUpdateTime, setPriceUpdateTime] = useState(Date.now());
   const { address, isConnected } = useAccount();
   const { deposit, isPending, isConfirming, isSuccess, error } = useDepositWithStatus();
@@ -151,13 +227,17 @@ export function TeamSelectionModal({
         viceCaptain: viceCaptain || '',
       });
 
-      // Close the team selection modal
-      // The parent component (LobbiesList) will handle showing the leaderboard
-      setTimeout(() => {
-        handleClose();
-      }, 300);
+      // Close the modal and navigate to lobby page
+      handleClose();
+      
+      // Navigate to lobby page after a short delay
+      if (lobbyId) {
+        setTimeout(() => {
+          router.push(`/lobby/${lobbyId}`);
+        }, 500);
+      }
     }
-  }, [isSuccess, lobbyId, lobbyName, entryFee, selectedCryptos, captain, viceCaptain, address, onConfirm, handleClose]);
+  }, [isSuccess, lobbyId, lobbyName, entryFee, selectedCryptos, captain, viceCaptain, address, onConfirm, handleClose, router]);
 
   if (!isOpen) return null;
 
@@ -270,9 +350,19 @@ export function TeamSelectionModal({
     );
   };
 
+  // Calculate team stats
+  const teamStats = useMemo(() => {
+    return {
+      selected: selectedCryptos.length,
+      total: 6,
+      captain: captain ? getCrypto(captain)?.symbol : null,
+      viceCaptain: viceCaptain ? getCrypto(viceCaptain)?.symbol : null,
+    };
+  }, [selectedCryptos.length, captain, viceCaptain]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-gray-900 border border-gray-700 rounded-xl overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-7xl h-screen bg-gray-900 border border-gray-700 rounded-xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <div>
@@ -299,14 +389,16 @@ export function TeamSelectionModal({
           </div>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
           >
             <X className="h-5 w-5 text-white" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+        {/* Content - Split Layout */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Side - Token Selection */}
+          <div className="flex-1 overflow-y-auto p-6 scrollbar-hide border-r border-gray-800">
           {/* Instructions */}
           <div className="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
             <p className="text-sm text-gray-300 mb-2">
@@ -344,7 +436,19 @@ export function TeamSelectionModal({
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-bold text-white">{crypto.symbol}</span>
+                        <div className="flex items-center gap-2">
+                          {crypto.logo && (
+                            <img 
+                              src={crypto.logo} 
+                              alt={crypto.symbol}
+                              className="w-5 h-5 object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          )}
+                          <span className="text-sm font-bold text-white">{crypto.symbol}</span>
+                        </div>
                         {isCap && <Crown className="h-4 w-4 text-white" />}
                         {isVC && <Star className="h-4 w-4 text-gray-400" />}
                       </div>
@@ -352,7 +456,7 @@ export function TeamSelectionModal({
                       <div className="flex gap-1">
                         <button
                           onClick={() => handleSetCaptain(cryptoId)}
-                          className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                          className={`flex-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer ${
                             isCap
                               ? 'bg-white text-black font-semibold'
                               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -362,7 +466,7 @@ export function TeamSelectionModal({
                         </button>
                         <button
                           onClick={() => handleSetViceCaptain(cryptoId)}
-                          className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                          className={`flex-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer ${
                             isVC
                               ? 'bg-gray-400 text-black font-semibold'
                               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -396,17 +500,29 @@ export function TeamSelectionModal({
                     className={`p-3 rounded-lg border-2 transition-all text-left ${
                       isSelected
                         ? isCap
-                          ? 'border-white bg-white/10'
+                          ? 'border-white bg-white/10 cursor-pointer'
                           : isVC
-                            ? 'border-gray-400 bg-gray-400/10'
-                            : 'border-white bg-white/5'
+                            ? 'border-gray-400 bg-gray-400/10 cursor-pointer'
+                            : 'border-white bg-white/5 cursor-pointer'
                         : canSelect
-                          ? 'border-gray-700 bg-gray-800 hover:border-gray-600 hover:bg-gray-750'
+                          ? 'border-gray-700 bg-gray-800 hover:border-gray-600 hover:bg-gray-750 cursor-pointer'
                           : 'border-gray-800 bg-gray-900 opacity-50 cursor-not-allowed'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-bold text-white">{crypto.symbol}</span>
+                      <div className="flex items-center gap-2">
+                        {crypto.logo && (
+                          <img 
+                            src={crypto.logo} 
+                            alt={crypto.symbol}
+                            className="w-5 h-5 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <span className="text-sm font-bold text-white">{crypto.symbol}</span>
+                      </div>
                       {isSelected && (
                         <div className="h-5 w-5 rounded-full bg-white flex items-center justify-center">
                           <Check className="h-3 w-3 text-black" />
@@ -416,14 +532,14 @@ export function TeamSelectionModal({
                     <p className="text-xs text-gray-400 mb-1">{crypto.name}</p>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-gray-500">${crypto.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                      <span
-                        className={`text-xs font-semibold ${
-                          crypto.change24h >= 0 ? 'text-white' : 'text-gray-500'
-                        }`}
-                      >
-                        {crypto.change24h >= 0 ? '+' : ''}
-                        {crypto.change24h.toFixed(1)}%
-                      </span>
+                          <span
+                            className={`text-xs font-semibold ${
+                              crypto.change24h >= 0 ? 'text-green-400' : 'text-red-400'
+                            }`}
+                          >
+                            {crypto.change24h >= 0 ? '+' : ''}
+                            {crypto.change24h.toFixed(1)}%
+                          </span>
                     </div>
                     {/* Mini Line Graph */}
                     <div className="mt-2 mb-2">
@@ -444,6 +560,133 @@ export function TeamSelectionModal({
                   </button>
                 );
               })}
+            </div>
+          </div>
+          </div>
+
+          {/* Right Side - Team Field Map */}
+          <div className="w-96 bg-gradient-to-br from-green-900/30 via-green-800/20 to-green-900/30 border-l border-gray-800 relative overflow-hidden">
+            {/* Field Background Pattern - Cricket Field Style */}
+            <div className="absolute inset-0 opacity-20">
+              {/* Vertical stripes */}
+              <div className="absolute inset-0" style={{
+                backgroundImage: `repeating-linear-gradient(
+                  90deg,
+                  transparent,
+                  transparent 8px,
+                  rgba(34, 197, 94, 0.15) 8px,
+                  rgba(34, 197, 94, 0.15) 16px
+                )`,
+              }} />
+              {/* Horizontal center line */}
+              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-green-500/30 transform -translate-y-1/2" />
+              {/* Center circle */}
+              <div className="absolute top-1/2 left-1/2 w-32 h-32 rounded-full border-2 border-green-500/20 transform -translate-x-1/2 -translate-y-1/2" />
+            </div>
+
+            {/* Team Stats Header */}
+            <div className="relative z-10 p-4 border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-white">
+                  Players {teamStats.selected}/{teamStats.total}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {selectedCryptos.length > 0 ? `${selectedCryptos.length} Selected` : 'No Selection'}
+                </span>
+              </div>
+              {captain && viceCaptain && (
+                <div className="flex items-center gap-4 mt-2 text-xs">
+                  <div className="flex items-center gap-1">
+                    <Crown className="h-3 w-3 text-yellow-400" />
+                    <span className="text-gray-300">C: {teamStats.captain}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3 w-3 text-gray-400" />
+                    <span className="text-gray-300">VC: {teamStats.viceCaptain}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Field Map */}
+            <div className="relative z-10 h-full p-6 flex flex-col items-center justify-center">
+              {selectedCryptos.length === 0 ? (
+                <div className="text-center text-gray-500">
+                  <div className="w-24 h-24 rounded-full border-2 border-dashed border-gray-700 flex items-center justify-center mx-auto mb-4">
+                    <Coins className="w-12 h-12 text-gray-600" />
+                  </div>
+                  <p className="text-sm">Select tokens to see them on the field</p>
+                </div>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
+                  {/* Top Row - 2 tokens */}
+                  <div className="flex items-center justify-center gap-4 w-full">
+                    {selectedCryptos.slice(0, 2).map((cryptoId, index) => {
+                      const crypto = getCrypto(cryptoId);
+                      if (!crypto) return null;
+                      const isCap = captain === cryptoId;
+                      const isVC = viceCaptain === cryptoId;
+                      return (
+                        <TokenFieldCard
+                          key={cryptoId}
+                          crypto={crypto}
+                          isCaptain={isCap}
+                          isViceCaptain={isVC}
+                          position={index + 1}
+                        />
+                      );
+                    })}
+                    {selectedCryptos.length < 2 && (
+                      <div className="w-24 h-28 rounded-xl border-2 border-dashed border-gray-700/50 bg-gray-800/20" />
+                    )}
+                  </div>
+
+                  {/* Middle Row - 2 tokens */}
+                  {selectedCryptos.length > 2 && (
+                    <div className="flex items-center justify-center gap-4 w-full">
+                      {selectedCryptos.slice(2, 4).map((cryptoId, index) => {
+                        const crypto = getCrypto(cryptoId);
+                        if (!crypto) return null;
+                        const isCap = captain === cryptoId;
+                        const isVC = viceCaptain === cryptoId;
+                        return (
+                          <TokenFieldCard
+                            key={cryptoId}
+                            crypto={crypto}
+                            isCaptain={isCap}
+                            isViceCaptain={isVC}
+                            position={index + 3}
+                          />
+                        );
+                      })}
+                      {selectedCryptos.length < 4 && (
+                        <div className="w-24 h-28 rounded-xl border-2 border-dashed border-gray-700/50 bg-gray-800/20" />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Bottom Row - 2 tokens */}
+                  {selectedCryptos.length > 4 && (
+                    <div className="flex items-center justify-center gap-4 w-full">
+                      {selectedCryptos.slice(4, 6).map((cryptoId, index) => {
+                        const crypto = getCrypto(cryptoId);
+                        if (!crypto) return null;
+                        const isCap = captain === cryptoId;
+                        const isVC = viceCaptain === cryptoId;
+                        return (
+                          <TokenFieldCard
+                            key={cryptoId}
+                            crypto={crypto}
+                            isCaptain={isCap}
+                            isViceCaptain={isVC}
+                            position={index + 5}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -475,16 +718,19 @@ export function TeamSelectionModal({
           <div className="flex gap-3">
             {lobbyId && (
               <button
-                onClick={() => setShowLeaderboard(true)}
-                className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+                onClick={() => {
+                  handleClose();
+                  router.push(`/lobby/${lobbyId}`);
+                }}
+                className="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2 cursor-pointer"
               >
                 <Trophy className="h-4 w-4" />
-                Leaderboard
+                View Lobby
               </button>
             )}
             <button
               onClick={handleClose}
-              className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -500,7 +746,7 @@ export function TeamSelectionModal({
               }
               className={`px-6 py-2 rounded-lg font-semibold transition-all ${
                 selectedCryptos.length === 6 && captain && viceCaptain && isConnected && !isPending && !isConfirming
-                  ? 'bg-white text-black hover:bg-gray-200'
+                  ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
                   : 'bg-gray-800 text-gray-500 cursor-not-allowed'
               }`}
             >
@@ -512,17 +758,6 @@ export function TeamSelectionModal({
         </div>
       </div>
 
-      {/* Lobby Leaderboard Modal */}
-      {lobbyId && (
-        <LobbyLeaderboard
-          isOpen={showLeaderboard}
-          onClose={() => setShowLeaderboard(false)}
-          lobbyId={lobbyId}
-          lobbyName={lobbyName}
-          startTime={startTime}
-          interval={interval}
-        />
-      )}
     </div>
   );
 }

@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Users, DollarSign, Coins, ArrowRight, Clock } from 'lucide-react';
-import { TeamSelectionModal } from './TeamSelectionModal';
-import { LobbyLeaderboard } from './LobbyLeaderboard';
 import { formatDateTime, formatDuration, calculateEndTime } from '@/shared/utils';
 
 export interface Lobby {
@@ -183,7 +182,7 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
           disabled={!isOpen}
           className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
             isOpen
-              ? 'bg-white text-black hover:bg-gray-200'
+              ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
               : 'bg-gray-800 text-gray-500 cursor-not-allowed'
           }`}
         >
@@ -204,45 +203,14 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
 };
 
 export function LobbiesList() {
+  const router = useRouter();
   const [lobbies] = useState<Lobby[]>(mockLobbies);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'full' | 'closed'>('all');
-  const [selectedLobby, setSelectedLobby] = useState<Lobby | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboardLobby, setLeaderboardLobby] = useState<Lobby | null>(null);
 
   const handleJoin = (lobbyId: string) => {
-    const lobby = lobbies.find((l) => l.id === lobbyId);
-    if (lobby) {
-      setSelectedLobby(lobby);
-      setIsModalOpen(true);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedLobby(null);
-  };
-
-  const handleConfirmTeam = (team: {
-    selectedCryptos: string[];
-    captain: string;
-    viceCaptain: string;
-  }) => {
-    // TODO: Implement join lobby with team selection
-    console.log('Joining lobby with team:', {
-      lobbyId: selectedLobby?.id,
-      team,
-    });
-    
-    // Show leaderboard after team is confirmed
-    if (selectedLobby) {
-      setLeaderboardLobby(selectedLobby);
-      setShowLeaderboard(true);
-    }
-    
-    handleCloseModal();
+    // Navigate to join page
+    router.push(`/lobby/${lobbyId}/join`);
   };
 
   const filteredLobbies = lobbies.filter((lobby) => {
@@ -284,7 +252,7 @@ export function LobbiesList() {
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium capitalize transition-colors ${
+              className={`rounded-lg px-4 py-2 text-sm font-medium capitalize transition-colors cursor-pointer ${
                 filterStatus === status
                   ? 'bg-white text-black'
                   : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -354,40 +322,11 @@ export function LobbiesList() {
               setSearchQuery('');
               setFilterStatus('all');
             }}
-            className="mt-4 text-white hover:text-gray-300"
+            className="mt-4 text-white hover:text-gray-300 cursor-pointer"
           >
             Clear filters
           </button>
         </div>
-      )}
-
-      {/* Team Selection Modal */}
-      {selectedLobby && (
-        <TeamSelectionModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          onConfirm={handleConfirmTeam}
-          lobbyName={selectedLobby.name}
-          entryFee={selectedLobby.depositAmount}
-          lobbyId={selectedLobby.id}
-          startTime={selectedLobby.startTime}
-          interval={selectedLobby.interval}
-        />
-      )}
-
-      {/* Lobby Leaderboard Modal */}
-      {leaderboardLobby && (
-        <LobbyLeaderboard
-          isOpen={showLeaderboard}
-          onClose={() => {
-            setShowLeaderboard(false);
-            setLeaderboardLobby(null);
-          }}
-          lobbyId={leaderboardLobby.id}
-          lobbyName={leaderboardLobby.name}
-          startTime={leaderboardLobby.startTime}
-          interval={leaderboardLobby.interval}
-        />
       )}
     </div>
   );
