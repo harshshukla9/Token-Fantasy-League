@@ -9,7 +9,10 @@ import { useAccount } from '@/wallet-connect';
 import { parseEther } from 'viem';
 import { useDepositWithStatus } from '@/hooks/useCFL';
 import { formatDateTime, formatDuration, calculateEndTime, simulateCurrentPrice } from '@/shared/utils';
-import { Lobby } from '@/components/LobbiesList';
+import { Lobby } from '@/hooks/useLobbies';
+import { useLobby } from '@/hooks/useLobbies';
+import { formatEther } from 'viem';
+import { JoinConfirmationModal } from '@/components/JoinConfirmationModal';
 
 export interface Cryptocurrency {
   id: string;
@@ -116,59 +119,47 @@ export default function JoinLobbyPage() {
   const { address, isConnected } = useAccount();
   const { deposit, isPending, isConfirming, isSuccess, error } = useDepositWithStatus();
 
-  const [lobby, setLobby] = useState<Lobby | null>(null);
   const [selectedCryptos, setSelectedCryptos] = useState<string[]>([]);
   const [captain, setCaptain] = useState<string | null>(null);
   const [viceCaptain, setViceCaptain] = useState<string | null>(null);
   const [priceUpdateTime, setPriceUpdateTime] = useState(Date.now());
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [joinSuccess, setJoinSuccess] = useState(false);
+  const [hasExistingTeam, setHasExistingTeam] = useState(false);
+  const [loadingTeam, setLoadingTeam] = useState(false);
 
-  // Fetch lobby data
+  // Fetch lobby data from API
+  const { lobby, loading: lobbyLoading, error: lobbyError } = useLobby(lobbyId);
+
+  // Check if user already has a team in this lobby
   useEffect(() => {
-    // Mock lobby data - in real app, fetch from API
-    const mockLobbies: Lobby[] = [
-      {
-        id: '1',
-        name: 'Premium League - Week 1',
-        depositAmount: 5,
-        currentParticipants: 45,
-        maxParticipants: 50,
-        numberOfCoins: 8,
-        prizePool: 225,
-        status: 'open',
-        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        interval: 7 * 24 * 60 * 60,
-      },
-      {
-        id: '2',
-        name: 'Standard League - Week 1',
-        depositAmount: 4,
-        currentParticipants: 32,
-        maxParticipants: 100,
-        numberOfCoins: 8,
-        prizePool: 128,
-        status: 'open',
-        startTime: new Date(Date.now() + 1 * 60 * 60 * 1000),
-        interval: 7 * 24 * 60 * 60,
-      },
-      {
-        id: '3',
-        name: 'Beginner League - Week 1',
-        depositAmount: 2,
-        currentParticipants: 78,
-        maxParticipants: 100,
-        numberOfCoins: 8,
-        prizePool: 156,
-        status: 'open',
-        startTime: new Date(Date.now() + 30 * 60 * 1000),
-        interval: 3 * 24 * 60 * 60,
-      },
-    ];
+    const checkExistingTeam = async () => {
+      if (!address || !lobbyId || lobbyLoading) return;
 
-    const foundLobby = mockLobbies.find(l => l.id === lobbyId);
-    if (foundLobby) {
-      setLobby(foundLobby);
-    }
-  }, [lobbyId]);
+      setLoadingTeam(true);
+      try {
+        const response = await fetch(`/api/lobbies/${lobbyId}/participant?address=${address}`);
+        const data = await response.json();
+
+        if (data.hasTeam && data.participant) {
+          setHasExistingTeam(true);
+          setSelectedCryptos(data.participant.cryptos || []);
+          setCaptain(data.participant.captain || null);
+          setViceCaptain(data.participant.viceCaptain || null);
+        } else {
+          setHasExistingTeam(false);
+        }
+      } catch (error) {
+        console.error('Error checking existing team:', error);
+      } finally {
+        setLoadingTeam(false);
+      }
+    };
+
+    checkExistingTeam();
+  }, [address, lobbyId, lobbyLoading]);
 
   // Update prices every second
   useEffect(() => {
@@ -240,6 +231,12 @@ export default function JoinLobbyPage() {
   const requiredCoins = lobby?.numberOfCoins || 6;
 
   const handleCryptoSelect = (cryptoId: string) => {
+    // Prevent changes if user already has a team
+    if (hasExistingTeam) {
+      alert('You cannot modify your team. You already have a team in this lobby.');
+      return;
+    }
+
     if (selectedCryptos.includes(cryptoId)) {
       setSelectedCryptos(selectedCryptos.filter((id) => id !== cryptoId));
       if (captain === cryptoId) setCaptain(null);
@@ -252,43 +249,93 @@ export default function JoinLobbyPage() {
   };
 
   const handleSetCaptain = (cryptoId: string) => {
+    // Prevent changes if user already has a team
+    if (hasExistingTeam) {
+      alert('You cannot modify your team. You already have a team in this lobby.');
+      return;
+    }
+
     if (!selectedCryptos.includes(cryptoId)) return;
     if (viceCaptain === cryptoId) setViceCaptain(null);
     setCaptain(captain === cryptoId ? null : cryptoId);
   };
 
   const handleSetViceCaptain = (cryptoId: string) => {
+    // Prevent changes if user already has a team
+    if (hasExistingTeam) {
+      alert('You cannot modify your team. You already have a team in this lobby.');
+      return;
+    }
+
     if (!selectedCryptos.includes(cryptoId)) return;
     if (captain === cryptoId) setCaptain(null);
     setViceCaptain(viceCaptain === cryptoId ? null : cryptoId);
   };
 
-  const handleConfirm = () => {
-    const requiredCoins = lobby?.numberOfCoins || 6;
-    if (selectedCryptos.length !== requiredCoins) {
-      alert(`Please select exactly ${requiredCoins} cryptocurrencies`);
+  const handleJoinClick = () => {
+    if (!lobby || !address) {
+      alert('Please connect your wallet');
       return;
     }
-    if (!captain) {
-      alert('Please select a Captain');
+
+    // Prevent joining if already has a team
+    if (hasExistingTeam) {
+      alert('You already have a team in this lobby');
       return;
     }
-    if (!viceCaptain) {
-      alert('Please select a Vice-Captain');
+
+    const requiredCoins = lobby.numberOfCoins || 8;
+    if (selectedCryptos.length !== requiredCoins || !captain || !viceCaptain) {
+      alert('Please complete your team selection');
       return;
     }
-    if (!isConnected) {
-      alert('Please connect your wallet first');
+
+    // Show confirmation modal
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmJoin = async () => {
+    if (!lobby || !address) {
       return;
     }
-    if (!lobby) return;
+
+    setJoining(true);
+    setJoinError(null);
+    setShowConfirmModal(false);
 
     try {
-      const depositAmount = parseEther(lobby.depositAmount.toString());
-      deposit(depositAmount);
-    } catch (error: any) {
-      console.error('Failed to parse deposit amount:', error);
-      alert(`Invalid deposit amount: ${error?.message || 'Unknown error'}. Please try again.`);
+      const response = await fetch(`/api/lobbies/${lobbyId}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address,
+          team: {
+            cryptos: selectedCryptos,
+            captain,
+            viceCaptain,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to join lobby');
+      }
+
+      // Show success message
+      setJoinSuccess(true);
+      
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        router.push(`/lobby/${lobbyId}`);
+      }, 2000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to join lobby';
+      setJoinError(errorMessage);
+      console.error('Join lobby error:', err);
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -351,18 +398,34 @@ export default function JoinLobbyPage() {
     };
   }, [selectedCryptos.length, captain, viceCaptain, lobby?.numberOfCoins]);
 
-  if (!lobby) {
+  if (lobbyLoading) {
     return (
       <div className="min-h-screen bg-black">
         <Navbar />
         <main className="container mx-auto px-4 py-8 max-w-6xl">
           <div className="text-center py-20">
-            <p className="text-red-400 text-xl">Lobby not found</p>
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-gray-700 rounded w-1/3 mx-auto"></div>
+              <div className="h-4 bg-gray-700 rounded w-1/2 mx-auto"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (lobbyError || !lobby) {
+    return (
+      <div className="min-h-screen bg-black">
+        <Navbar />
+        <main className="container mx-auto px-4 py-8 max-w-6xl">
+          <div className="text-center py-20">
+            <p className="text-red-400 text-xl">{lobbyError || 'Lobby not found'}</p>
             <button
               onClick={() => router.push('/lobbies')}
               className="mt-4 px-6 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
             >
-              Back to Dashboard
+              Back to Lobbies
             </button>
           </div>
         </main>
@@ -391,7 +454,9 @@ export default function JoinLobbyPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-white mb-2">{lobby.name}</h1>
                   <p className="text-sm text-gray-400">
-                    Entry Fee: <span className="text-white font-semibold">{lobby.depositAmount} tokens</span>
+                    Entry Fee: <span className="text-white font-semibold">
+                      {lobby ? parseFloat(formatEther(BigInt(lobby.depositAmount || '0'))).toFixed(2) : '0'} MNT
+                    </span>
                   </p>
                   {lobby.startTime && lobby.interval && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
@@ -626,12 +691,21 @@ export default function JoinLobbyPage() {
 
               {/* Field Map */}
               <div className="relative z-10 h-full p-6 flex flex-col items-center justify-center min-h-[400px]">
-                {selectedCryptos.length === 0 ? (
+                {loadingTeam ? (
+                  <div className="text-center text-gray-500 py-12">
+                    <div className="animate-pulse space-y-4">
+                      <div className="h-8 bg-gray-700 rounded w-1/2 mx-auto"></div>
+                      <div className="h-4 bg-gray-700 rounded w-1/3 mx-auto"></div>
+                    </div>
+                  </div>
+                ) : selectedCryptos.length === 0 ? (
                   <div className="text-center text-gray-500">
                     <div className="w-24 h-24 rounded-full border-2 border-dashed border-gray-700 flex items-center justify-center mx-auto mb-4">
                       <Coins className="w-12 h-12 text-gray-600" />
                     </div>
-                    <p className="text-sm">Select tokens to see them on the field</p>
+                    <p className="text-sm">
+                      {hasExistingTeam ? 'Your team is already set!' : 'Select tokens to see them on the field'}
+                    </p>
                   </div>
                 ) : (
                   <div className="w-full flex flex-col items-center justify-center space-y-4">
@@ -682,11 +756,19 @@ export default function JoinLobbyPage() {
           {/* Footer */}
           <div className="card mt-6 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-gray-400">
-              {!isConnected && (
+              {loadingTeam && (
+                <span className="text-gray-500">Loading your team...</span>
+              )}
+              {!loadingTeam && hasExistingTeam && (
+                <div className="flex items-center gap-2">
+                  <span className="text-green-400 font-semibold">✅ You already have a team in this lobby!</span>
+                </div>
+              )}
+              {!loadingTeam && !hasExistingTeam && !isConnected && (
                 <span className="text-yellow-400">Please connect your wallet</span>
               )}
-              {isConnected && (() => {
-                const requiredCoins = lobby?.numberOfCoins || 6;
+              {!loadingTeam && !hasExistingTeam && isConnected && (() => {
+                const requiredCoins = lobby?.numberOfCoins || 8;
                 const remaining = requiredCoins - selectedCryptos.length;
                 if (selectedCryptos.length < requiredCoins) {
                   return <span>Select {remaining} more cryptocurrency{remaining !== 1 ? 's' : ''}</span>;
@@ -697,16 +779,20 @@ export default function JoinLobbyPage() {
                 if (selectedCryptos.length === requiredCoins && captain && !viceCaptain) {
                   return <span className="text-yellow-400">Select a Vice-Captain</span>;
                 }
-                if (selectedCryptos.length === requiredCoins && captain && viceCaptain && !isPending && !isConfirming) {
+                if (selectedCryptos.length === requiredCoins && captain && viceCaptain) {
                   return <span className="text-white">Team ready to join!</span>;
                 }
                 return null;
               })()}
-              {isPending && <span className="text-yellow-400">Preparing deposit transaction...</span>}
-              {isConfirming && <span className="text-yellow-400">Waiting for deposit confirmation...</span>}
-              {error && (
+              {joining && <span className="text-yellow-400">Joining lobby...</span>}
+              {joinSuccess && (
+                <span className="text-green-400 font-semibold">
+                  ✅ User successfully joined!
+                </span>
+              )}
+              {joinError && (
                 <span className="text-red-400">
-                  Deposit failed: {error.message || 'Unknown error'}. Please try again.
+                  {joinError}
                 </span>
               )}
             </div>
@@ -717,33 +803,53 @@ export default function JoinLobbyPage() {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleConfirm}
-                disabled={(() => {
-                  const requiredCoins = lobby?.numberOfCoins || 6;
-                  return selectedCryptos.length !== requiredCoins || 
-                         !captain || 
-                         !viceCaptain || 
-                         !isConnected ||
-                         isPending || 
-                         isConfirming;
-                })()}
-                className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                  (() => {
-                    const requiredCoins = lobby?.numberOfCoins || 6;
-                    return selectedCryptos.length === requiredCoins && captain && viceCaptain && isConnected && !isPending && !isConfirming;
-                  })()
-                    ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
-                    : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isPending && 'Preparing Deposit...'}
-                {isConfirming && 'Confirming Deposit...'}
-                {!isPending && !isConfirming && 'Confirm & Join'}
-              </button>
+              {hasExistingTeam ? (
+                <button
+                  onClick={() => router.push(`/lobby/${lobbyId}`)}
+                  className="px-6 py-2 rounded-lg font-semibold transition-all bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+                >
+                  View My Team
+                </button>
+              ) : (
+                <button
+                  onClick={handleJoinClick}
+                  disabled={(() => {
+                    const requiredCoins = lobby?.numberOfCoins || 8;
+                    return selectedCryptos.length !== requiredCoins || 
+                           !captain || 
+                           !viceCaptain || 
+                           !isConnected ||
+                           joining ||
+                           joinSuccess ||
+                           loadingTeam;
+                  })()}
+                  className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                    (() => {
+                      const requiredCoins = lobby?.numberOfCoins || 8;
+                      return selectedCryptos.length === requiredCoins && captain && viceCaptain && isConnected && !joining && !joinSuccess && !loadingTeam;
+                    })()
+                      ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
+                      : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {joining ? 'Joining...' : joinSuccess ? 'Joined!' : 'Join Lobby'}
+                </button>
+              )}
             </div>
           </div>
         </main>
+
+        {/* Join Confirmation Modal */}
+        {lobby && (
+          <JoinConfirmationModal
+            isOpen={showConfirmModal}
+            onClose={() => setShowConfirmModal(false)}
+            onConfirm={handleConfirmJoin}
+            entryFee={lobby.depositAmount}
+            lobbyName={lobby.name}
+            loading={joining}
+          />
+        )}
       </ProtectedRoute>
     </div>
   );

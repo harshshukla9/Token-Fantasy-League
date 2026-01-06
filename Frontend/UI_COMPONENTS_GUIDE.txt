@@ -1,0 +1,215 @@
+═══════════════════════════════════════════════════════════════════
+  DEPOSIT & WALLET UI COMPONENTS - COMPLETE GUIDE
+═══════════════════════════════════════════════════════════════════
+
+📦 NEW COMPONENTS CREATED:
+
+1️⃣  useBalance Hook (src/hooks/useBalance.ts)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📌 Purpose: Fetch user balance and transactions from API
+   
+   Features:
+   ✓ Fetches balance from /api/balance/[address]
+   ✓ Fetches transaction history from /api/transactions/[address]
+   ✓ Auto-fetches on wallet connect
+   ✓ Manual refetch functions
+   ✓ Loading and error states
+   
+   Usage:
+   ```typescript
+   const { balance, transactions, loading, error, refetch } = useBalance();
+   ```
+
+2️⃣  BalanceCard Component (src/components/BalanceCard.tsx)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📌 Purpose: Display user's deposit balance from database
+   
+   Features:
+   ✓ Shows balance in MNT (formatted from wei)
+   ✓ Displays wallet address (truncated)
+   ✓ Last updated timestamp
+   ✓ Refresh button to manually update
+   ✓ Beautiful gradient design
+   ✓ Loading skeleton state
+   ✓ Wallet connection check
+   
+   Display:
+   ┌─────────────────────────────────────┐
+   │ Your Deposit Balance         🔄     │
+   │ 0x742d...0bEb                       │
+   │                                     │
+   │ 1.5000 MNT                          │
+   │                                     │
+   │ Last updated: Jan 7, 2025 12:00 PM │
+   │                                     │
+   │ Stored in database • Real-time     │
+   └─────────────────────────────────────┘
+
+3️⃣  DepositCard Component (src/components/DepositCard.tsx)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📌 Purpose: Allow users to deposit funds to the contract
+   
+   Features:
+   ✓ Input field for deposit amount
+   ✓ Quick preset buttons (0.1, 0.5, 1, 5 MNT)
+   ✓ Wallet integration with wagmi
+   ✓ Transaction status tracking
+   ✓ Success callback to refresh balance
+   ✓ Link to block explorer
+   ✓ Error handling with messages
+   ✓ Beautiful loading states
+   
+   Display:
+   ┌─────────────────────────────────────┐
+   │ Deposit Funds                       │
+   │ Deposit MNT to your account balance │
+   │                                     │
+   │ Amount (MNT)                        │
+   │ ┌───────────────────────┬─────┐    │
+   │ │ 0.0                   │1 MNT│    │
+   │ └───────────────────────┴─────┘    │
+   │                                     │
+   │ [0.1] [0.5] [1] [5]                │
+   │                                     │
+   │ ┌─────────────────────────────┐    │
+   │ │        DEPOSIT              │    │
+   │ └─────────────────────────────┘    │
+   │                                     │
+   │ Contract: 0x320E...9825             │
+   └─────────────────────────────────────┘
+
+4️⃣  TransactionHistory Component (src/components/TransactionHistory.tsx)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📌 Purpose: Display user's deposit transaction history
+   
+   Features:
+   ✓ Lists recent deposits
+   ✓ Shows amount, timestamp, and tx hash
+   ✓ Links to block explorer
+   ✓ Refresh button
+   ✓ Empty state UI
+   ✓ Loading skeleton
+   
+   Display:
+   ┌─────────────────────────────────────┐
+   │ Transaction History        Refresh  │
+   │                                     │
+   │ ┌───────────────────────────────┐   │
+   │ │ 🟢 +0.5000 MNT          View →│   │
+   │ │    Jan 7, 2025 11:30 AM       │   │
+   │ └───────────────────────────────┘   │
+   │                                     │
+   │ ┌───────────────────────────────┐   │
+   │ │ 🟢 +1.0000 MNT          View →│   │
+   │ │    Jan 7, 2025 10:15 AM       │   │
+   │ └───────────────────────────────┘   │
+   └─────────────────────────────────────┘
+
+5️⃣  Wallet Dashboard Page (src/app/wallet/page.tsx)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📌 Purpose: Main wallet page combining all components
+   
+   Features:
+   ✓ Full-page wallet dashboard
+   ✓ Grid layout with balance and deposit cards
+   ✓ Transaction history section
+   ✓ Info cards explaining features
+   ✓ Wallet connection guard
+   ✓ Auto-refresh after successful deposit
+   
+   Layout:
+   ┌─────────────────────────────────────────────────────────┐
+   │ Wallet & Deposits                                       │
+   │ Manage your deposits and view your balance             │
+   │                                                         │
+   │ ┌──────────────────────┐ ┌──────────────────────┐     │
+   │ │   Balance Card       │ │   Deposit Card       │     │
+   │ │                      │ │                      │     │
+   │ │   1.5000 MNT        │ │   Amount: [____]     │     │
+   │ │                      │ │   [DEPOSIT]          │     │
+   │ └──────────────────────┘ └──────────────────────┘     │
+   │                                                         │
+   │ ┌───────────────────────────────────────────────┐      │
+   │ │   Transaction History                         │      │
+   │ │   [Recent deposits listed here...]            │      │
+   │ └───────────────────────────────────────────────┘      │
+   │                                                         │
+   │ ┌────────┐ ┌────────┐ ┌────────┐                      │
+   │ │ ⚡ Fast│ │ 🔒 Safe│ │ ✅ Open│                      │
+   │ │ Updates│ │ Storage│ │ Source │                      │
+   │ └────────┘ └────────┘ └────────┘                      │
+   └─────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════
+
+🚀 HOW TO ACCESS:
+
+1. Start the app:
+   npm run dev
+
+2. Navigate to http://localhost:3000
+
+3. Click "Wallet" in the navigation bar
+
+4. Connect your wallet
+
+5. Deposit funds and watch your balance update automatically!
+
+═══════════════════════════════════════════════════════════════════
+
+🔄 DATA FLOW:
+
+User deposits
+    ↓
+Smart Contract emits event
+    ↓
+Event Listener catches it
+    ↓
+MongoDB updated
+    ↓
+API serves data (/api/balance/[address])
+    ↓
+useBalance hook fetches data
+    ↓
+BalanceCard displays updated balance
+    ↓
+TransactionHistory shows new transaction
+
+═══════════════════════════════════════════════════════════════════
+
+🎨 STYLING:
+
+All components use:
+- Tailwind CSS for styling
+- Gradient backgrounds (purple/blue theme)
+- Glass morphism effects
+- Smooth transitions and hover effects
+- Responsive design (mobile-friendly)
+- Loading skeletons for better UX
+- Dark mode optimized
+
+═══════════════════════════════════════════════════════════════════
+
+🧪 TESTING:
+
+1. Connect wallet on Mantle Sepolia
+2. Make sure you have some MNT testnet tokens
+3. Enter amount and click "Deposit"
+4. Confirm transaction in wallet
+5. Wait for confirmation (~3-5 seconds)
+6. Balance updates automatically
+7. Transaction appears in history
+8. Check MongoDB to verify data is stored
+
+═══════════════════════════════════════════════════════════════════
+
+📝 IMPORTANT NOTES:
+
+- Balance is fetched from MongoDB (not directly from blockchain)
+- Event listener must be running for balance updates
+- After deposit, there's a 3-second delay before refetch
+- All amounts are in MNT (Mantle native token)
+- Transactions link to Mantle Sepolia block explorer
+
+═══════════════════════════════════════════════════════════════════
+

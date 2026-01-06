@@ -1,0 +1,92 @@
+═══════════════════════════════════════════════════════════════════
+  CFL DEPOSIT TRACKER - QUICK START
+═══════════════════════════════════════════════════════════════════
+
+🚀 GET STARTED IN 3 STEPS:
+
+1️⃣  INSTALL DEPENDENCIES
+   cd Frontend
+   npm install
+
+2️⃣  SETUP ENVIRONMENT
+   - Install MongoDB: brew install mongodb-community (Mac)
+   - Start MongoDB: brew services start mongodb-community
+   - Copy env.local.example to .env.local
+   - Update MONGODB_URI if needed
+
+3️⃣  RUN THE APP
+   npm run dev:all
+
+   OR separately:
+   npm run dev          # Terminal 1
+   npm run listener     # Terminal 2
+
+═══════════════════════════════════════════════════════════════════
+
+✅ WHAT WAS BUILT:
+
+📁 DATABASE LAYER (src/lib/db/)
+   - mongodb.ts          → MongoDB connection handler
+   - models/User.ts      → User balance schema
+   - models/Transaction.ts → Transaction history schema
+
+📁 EVENT LISTENER (src/lib/services/)
+   - eventListener.ts    → Watches for Deposited events
+                          → Auto-syncs historical events
+                          → Real-time WebSocket listener
+                          → Auto-reconnection logic
+
+📁 API ROUTES (src/app/api/)
+   - balance/[address]/  → Get user balance
+   - transactions/[address]/ → Get user transaction history
+   - leaderboard/        → Get top depositors
+   - stats/              → Get platform statistics
+
+📁 SCRIPTS (scripts/)
+   - listener.ts         → Standalone event listener
+   - test-api.sh         → API testing script
+
+═══════════════════════════════════════════════════════════════════
+
+🔄 HOW IT WORKS:
+
+User deposits → Contract emits "Deposited" event → Event listener 
+catches it → Updates MongoDB → API serves the data → Frontend displays
+
+Contract: 0x320E6049a8806295aF8Dd6F1D6Df708474059825
+Chain: Mantle Sepolia (Chain ID: 5003)
+Event: Deposited(address indexed player, uint256 amount, uint256 timestamp)
+
+═══════════════════════════════════════════════════════════════════
+
+📡 TEST THE API:
+
+# Get balance
+curl http://localhost:3000/api/balance/0xYOUR_ADDRESS
+
+# Get transactions
+curl http://localhost:3000/api/transactions/0xYOUR_ADDRESS
+
+# Get leaderboard
+curl http://localhost:3000/api/leaderboard
+
+# Get stats
+curl http://localhost:3000/api/stats
+
+# Or run the test script
+./scripts/test-api.sh
+
+═══════════════════════════════════════════════════════════════════
+
+🎯 NEXT STEPS:
+
+1. Test with a real deposit on Mantle Sepolia
+2. Integrate API endpoints into your frontend components
+3. Set up production MongoDB (MongoDB Atlas recommended)
+4. Add authentication/authorization if needed
+5. Set up monitoring for the event listener
+
+═══════════════════════════════════════════════════════════════════
+
+Need help? Check SETUP_GUIDE.txt for detailed documentation!
+

@@ -1,0 +1,164 @@
+═══════════════════════════════════════════════════════════════════
+  CFL DEPOSIT EVENT LISTENER - SETUP GUIDE
+═══════════════════════════════════════════════════════════════════
+
+📋 OVERVIEW
+-----------
+This system listens for deposit events from the smart contract on 
+Mantle Sepolia and automatically updates user balances in MongoDB.
+
+🏗️ ARCHITECTURE
+----------------
+1. Smart Contract: Emits "Deposited" events when users deposit
+2. Event Listener: Watches blockchain for these events
+3. MongoDB: Stores user balances and transaction history
+4. Next.js API Routes: Provides REST endpoints to query data
+
+📦 INSTALLATION
+---------------
+1. Install dependencies:
+   cd Frontend
+   npm install
+
+2. Set up MongoDB:
+   - Install MongoDB locally OR use MongoDB Atlas
+   - Create a database named "cfl"
+
+3. Configure environment variables:
+   - Copy env.local.example to .env.local
+   - Update MONGODB_URI with your MongoDB connection string
+   - Default: mongodb://localhost:27017/cfl
+
+4. Update START_BLOCK (optional):
+   - Set to the block where your Deposit contract was deployed
+   - This helps sync historical events faster
+
+🚀 RUNNING THE SYSTEM
+---------------------
+
+Option 1: Run Everything Together (Recommended)
+   npm run dev:all
+
+   This runs both:
+   - Next.js dev server (port 3000)
+   - Event listener service
+
+Option 2: Run Separately
+   Terminal 1: npm run dev          # Next.js app
+   Terminal 2: npm run listener      # Event listener
+
+🔍 WHAT HAPPENS WHEN YOU START
+-------------------------------
+1. Event listener connects to MongoDB
+2. Syncs historical Deposited events from START_BLOCK
+3. Starts WebSocket connection to Mantle Sepolia
+4. Watches for new Deposited events in real-time
+5. Updates MongoDB when deposits are detected
+
+📡 API ENDPOINTS
+----------------
+All endpoints are available at http://localhost:3000/api
+
+1. Get User Balance
+   GET /api/balance/[address]
+   Example: /api/balance/0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb
+
+   Response:
+   {
+     "address": "0x742d35cc6634c0532925a3b844bc9e7595f0beb",
+     "balance": "1000000000000000000",
+     "lastUpdated": "2025-01-07T12:00:00.000Z"
+   }
+
+2. Get User Transactions
+   GET /api/transactions/[address]?limit=50&skip=0
+   Example: /api/transactions/0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb
+
+   Response:
+   {
+     "transactions": [...],
+     "total": 10,
+     "limit": 50,
+     "skip": 0
+   }
+
+3. Get Leaderboard
+   GET /api/leaderboard?limit=100
+
+   Response:
+   {
+     "leaderboard": [
+       {
+         "address": "0x...",
+         "balance": "5000000000000000000",
+         "lastUpdated": "..."
+       },
+       ...
+     ],
+     "total": 150
+   }
+
+4. Get Platform Stats
+   GET /api/stats
+
+   Response:
+   {
+     "totalUsers": 150,
+     "totalTransactions": 450,
+     "totalDeposits": "10000000000000000000",
+     "recentTransactions": [...]
+   }
+
+🗄️ DATABASE SCHEMA
+-------------------
+Users Collection:
+- address: string (lowercase, indexed)
+- balance: string (wei amount)
+- lastUpdated: Date
+- createdAt: Date
+
+Transactions Collection:
+- address: string (user address)
+- amount: string (deposit amount in wei)
+- txHash: string (unique, indexed)
+- blockNumber: bigint
+- timestamp: Date
+- createdAt: Date
+
+🔧 TROUBLESHOOTING
+------------------
+1. MongoDB Connection Error
+   - Ensure MongoDB is running: mongod
+   - Check MONGODB_URI in .env.local
+
+2. RPC Connection Error
+   - Check if Mantle Sepolia RPC is accessible
+   - Try alternative RPC: https://rpc.testnet.mantle.xyz
+
+3. No Events Detected
+   - Verify contract address is correct
+   - Check if START_BLOCK is set correctly
+   - Ensure contract has actual deposits
+
+4. WebSocket Disconnects
+   - System auto-reconnects (max 5 attempts)
+   - If persistent, check WS_URL
+
+📝 CONTRACT INFO
+----------------
+Network: Mantle Sepolia Testnet
+Chain ID: 5003
+Deposit Contract: 0x320E6049a8806295aF8Dd6F1D6Df708474059825
+Event: Deposited(address indexed player, uint256 amount, uint256 timestamp)
+
+🔐 PRODUCTION NOTES
+-------------------
+- Use MongoDB Atlas or managed MongoDB for production
+- Set up proper indexing on MongoDB collections
+- Use environment-specific RPC endpoints
+- Add rate limiting to API routes
+- Set up monitoring and alerting for event listener
+- Consider using PM2 or similar for process management
+
+═══════════════════════════════════════════════════════════════════
+

@@ -2,97 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, DollarSign, Coins, ArrowRight, Clock } from 'lucide-react';
+import { useAccount } from 'wagmi';
+import { Users, DollarSign, Coins, ArrowRight, Clock, Plus } from 'lucide-react';
+import { formatEther } from 'viem';
 import { formatDateTime, formatDuration, calculateEndTime } from '@/shared/utils';
+import { useLobbies, Lobby } from '@/hooks/useLobbies';
+import { CreateLobbyModal } from './CreateLobbyModal';
+import { isAdmin } from '@/lib/utils/admin';
 
-export interface Lobby {
-  id: string;
-  name: string;
-  depositAmount: number; // Entry fee in tokens
-  currentParticipants: number;
-  maxParticipants: number;
-  numberOfCoins: number; // Number of cryptocurrencies in this lobby
-  prizePool: number; // Total prize pool
-  status: 'open' | 'full' | 'closed';
-  startTime: Date | string; // Pool start time
-  interval: number; // Duration in seconds (e.g., 7 days = 604800)
-}
-
-// Mock data - replace with actual API call
-const mockLobbies: Lobby[] = [
-  {
-    id: '1',
-    name: 'Premium League - Week 1',
-    depositAmount: 5,
-    currentParticipants: 45,
-    maxParticipants: 50,
-    numberOfCoins: 8,
-    prizePool: 225,
-    status: 'open',
-    startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-    interval: 7 * 24 * 60 * 60, // 7 days in seconds
-  },
-  {
-    id: '2',
-    name: 'Standard League - Week 1',
-    depositAmount: 4,
-    currentParticipants: 32,
-    maxParticipants: 100,
-    numberOfCoins: 8,
-    prizePool: 128,
-    status: 'open',
-    startTime: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour from now
-    interval: 7 * 24 * 60 * 60, // 7 days in seconds
-  },
-  {
-    id: '3',
-    name: 'Beginner League - Week 1',
-    depositAmount: 2,
-    currentParticipants: 78,
-    maxParticipants: 100,
-    numberOfCoins: 8,
-    prizePool: 156,
-    status: 'open',
-    startTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
-    interval: 3 * 24 * 60 * 60, // 3 days in seconds
-  },
-  {
-    id: '4',
-    name: 'Elite League - Week 1',
-    depositAmount: 5,
-    currentParticipants: 20,
-    maxParticipants: 25,
-    numberOfCoins: 8,
-    prizePool: 100,
-    status: 'open',
-    startTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
-    interval: 14 * 24 * 60 * 60, // 14 days in seconds
-  },
-  {
-    id: '5',
-    name: 'Mini League - Week 1',
-    depositAmount: 3,
-    currentParticipants: 100,
-    maxParticipants: 100,
-    numberOfCoins: 8,
-    prizePool: 300,
-    status: 'full',
-    startTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // Started 2 days ago
-    interval: 7 * 24 * 60 * 60, // 7 days in seconds
-  },
-  {
-    id: '6',
-    name: 'Premium League - Week 2',
-    depositAmount: 4,
-    currentParticipants: 12,
-    maxParticipants: 50,
-    numberOfCoins: 8,
-    prizePool: 48,
-    status: 'open',
-    startTime: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours from now
-    interval: 7 * 24 * 60 * 60, // 7 days in seconds
-  },
-];
+// Export Lobby type for backward compatibility
+export type { Lobby };
 
 interface LobbyRowProps {
   lobby: Lobby;
@@ -103,6 +22,10 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
   const isFull = lobby.currentParticipants >= lobby.maxParticipants;
   const isOpen = lobby.status === 'open' && !isFull;
   const participationPercentage = (lobby.currentParticipants / lobby.maxParticipants) * 100;
+  
+  // Convert wei to MNT for display
+  const depositAmountMNT = parseFloat(formatEther(BigInt(lobby.depositAmount || '0')));
+  const prizePoolMNT = parseFloat(formatEther(BigInt(lobby.prizePool || '0')));
 
   return (
     <tr
@@ -135,8 +58,8 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
       <td className="px-6 py-4">
         <div className="flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-gray-400" />
-          <span className="text-white font-semibold">{lobby.depositAmount}</span>
-          <span className="text-sm text-gray-400">MON</span>
+          <span className="text-white font-semibold">{depositAmountMNT.toFixed(2)}</span>
+          <span className="text-sm text-gray-400">MNT</span>
         </div>
       </td>
       <td className="px-6 py-4">
@@ -159,7 +82,7 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
       </td>
       <td className="px-6 py-4">
         <div className="text-white font-semibold">
-          {lobby.prizePool} <span className="text-sm text-gray-400">MON</span>
+          {prizePoolMNT.toFixed(2)} <span className="text-sm text-gray-400">MNT</span>
         </div>
       </td>
       <td className="px-6 py-4">
@@ -188,7 +111,7 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
         >
           {isOpen ? (
             <>
-              Join
+              Create Team
               <ArrowRight className="h-4 w-4" />
             </>
           ) : isFull ? (
@@ -204,12 +127,16 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
 
 export function LobbiesList() {
   const router = useRouter();
-  const [lobbies] = useState<Lobby[]>(mockLobbies);
+  const { address } = useAccount();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'full' | 'closed'>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  const { lobbies, loading, error, refetch } = useLobbies();
+
+  const isUserAdmin = address ? isAdmin(address) : false;
 
   const handleJoin = (lobbyId: string) => {
-    // Navigate to join page
     router.push(`/lobby/${lobbyId}/join`);
   };
 
@@ -225,6 +152,20 @@ export function LobbiesList() {
 
   return (
     <div className="space-y-6">
+      {/* Header with Create Button */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-white">Available Lobbies</h2>
+        {isUserAdmin && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-semibold transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            Create Lobby
+          </button>
+        )}
+      </div>
+
       {/* Search and Filter */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Search */}
@@ -264,8 +205,31 @@ export function LobbiesList() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-12 text-center">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-700 rounded w-1/4 mx-auto"></div>
+            <div className="h-4 bg-gray-700 rounded w-1/2 mx-auto"></div>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="rounded-xl border border-red-800 bg-red-900/20 p-6 text-center">
+          <p className="text-red-400">{error}</p>
+          <button
+            onClick={() => refetch()}
+            className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Lobbies List Table */}
-      {filteredLobbies.length > 0 ? (
+      {!loading && !error && filteredLobbies.length > 0 ? (
         <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -328,6 +292,16 @@ export function LobbiesList() {
           </button>
         </div>
       )}
+
+      {/* Create Lobby Modal */}
+      <CreateLobbyModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          refetch();
+          setShowCreateModal(false);
+        }}
+      />
     </div>
   );
 }

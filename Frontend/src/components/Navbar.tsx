@@ -19,16 +19,22 @@ export function Navbar() {
               Token Fantasy League
             </Link>
             <Link 
+              href="/lobbies" 
+              className="text-gray-300 hover:text-white transition-all duration-200 hover:scale-105 px-3 py-1.5 rounded-lg hover:bg-gray-800/50"
+            >
+              Lobbies
+            </Link>
+            <Link 
+              href="/wallet" 
+              className="text-gray-300 hover:text-white transition-all duration-200 hover:scale-105 px-3 py-1.5 rounded-lg hover:bg-gray-800/50"
+            >
+              Wallet
+            </Link>
+            <Link 
               href={`/profile/${address}`} 
               className="text-gray-300 hover:text-white transition-all duration-200 hover:scale-105 px-3 py-1.5 rounded-lg hover:bg-gray-800/50"
             >
               Profile
-            </Link>
-            <Link 
-              href="/fantasy-points" 
-              className="text-gray-300 hover:text-white transition-all duration-200 hover:scale-105 px-3 py-1.5 rounded-lg hover:bg-gray-800/50"
-            >
-              Fantasy Points
             </Link>
           </div>
 
