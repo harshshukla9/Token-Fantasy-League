@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { Users, DollarSign, Coins, ArrowRight, Clock, Plus } from 'lucide-react';
@@ -16,9 +16,11 @@ export type { Lobby };
 interface LobbyRowProps {
   lobby: Lobby;
   onJoin?: (lobbyId: string) => void;
+  hasJoined?: boolean;
 }
 
-const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
+const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin, hasJoined = false }) => {
+  const router = useRouter();
   const isFull = lobby.currentParticipants >= lobby.maxParticipants;
   const isOpen = lobby.status === 'open' && !isFull;
   const participationPercentage = (lobby.currentParticipants / lobby.maxParticipants) * 100;
@@ -26,6 +28,14 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
   // Convert wei to MNT for display
   const depositAmountMNT = parseFloat(formatEther(BigInt(lobby.depositAmount || '0')));
   const prizePoolMNT = parseFloat(formatEther(BigInt(lobby.prizePool || '0')));
+
+  const handleAction = () => {
+    if (hasJoined) {
+      router.push(`/lobby/${lobby.id}`);
+    } else if (onJoin) {
+      onJoin(lobby.id);
+    }
+  };
 
   return (
     <tr
@@ -101,15 +111,19 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin }) => {
       </td>
       <td className="px-6 py-4">
         <button
-          onClick={() => onJoin && onJoin(lobby.id)}
-          disabled={!isOpen}
+          onClick={handleAction}
+          disabled={!isOpen && !hasJoined}
           className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
-            isOpen
-              ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
-              : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+            hasJoined
+              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 cursor-pointer'
+              : isOpen
+                ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
+                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {isOpen ? (
+          {hasJoined ? (
+            'ALREADY JOINED'
+          ) : isOpen ? (
             <>
               Create Team
               <ArrowRight className="h-4 w-4" />
@@ -131,8 +145,40 @@ export function LobbiesList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'full' | 'closed'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [joinedLobbies, setJoinedLobbies] = useState<Set<string>>(new Set());
   
   const { lobbies, loading, error, refetch } = useLobbies();
+
+  // Check which lobbies the user has already joined
+  useEffect(() => {
+    const checkJoinedLobbies = async () => {
+      if (!address || lobbies.length === 0) {
+        setJoinedLobbies(new Set());
+        return;
+      }
+
+      const joined = new Set<string>();
+      
+      // Check each lobby in parallel
+      const checks = lobbies.map(async (lobby) => {
+        try {
+          const response = await fetch(`/api/lobbies/${lobby.id}/participant?address=${address}`);
+          const data = await response.json();
+          
+          if (data.hasTeam) {
+            joined.add(lobby.id);
+          }
+        } catch (error) {
+          console.error(`Error checking lobby ${lobby.id}:`, error);
+        }
+      });
+
+      await Promise.all(checks);
+      setJoinedLobbies(joined);
+    };
+
+    checkJoinedLobbies();
+  }, [address, lobbies]);
 
   const isUserAdmin = address ? isAdmin(address) : false;
 
@@ -272,7 +318,12 @@ export function LobbiesList() {
               </thead>
               <tbody className="divide-y divide-gray-800">
                 {filteredLobbies.map((lobby) => (
-                  <LobbyRow key={lobby.id} lobby={lobby} onJoin={handleJoin} />
+                  <LobbyRow 
+                    key={lobby.id} 
+                    lobby={lobby} 
+                    onJoin={handleJoin}
+                    hasJoined={joinedLobbies.has(lobby.id)}
+                  />
                 ))}
               </tbody>
             </table>

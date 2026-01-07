@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther } from 'viem';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
+import { parseEther, formatEther } from 'viem';
 import { DepositABI } from '@/abis/Deposit';
 import { CONTRACT_ADDRESSES } from '@/shared/constants';
 import { useDepositEvents } from '@/hooks/useDepositEvents';
@@ -12,6 +12,11 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
   const [amount, setAmount] = useState('');
   const [isDepositing, setIsDepositing] = useState(false);
   const [savingToDB, setSavingToDB] = useState(false);
+
+  // Get wallet balance
+  const { data: walletBalance } = useBalance({
+    address: address as `0x${string}` | undefined,
+  });
 
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
@@ -94,7 +99,7 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
 
   if (!isConnected) {
     return (
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700">
+      <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
         <div className="text-center">
           <p className="text-gray-400">Connect your wallet to deposit</p>
         </div>
@@ -102,13 +107,30 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
     );
   }
 
+  const walletBalanceFormatted = walletBalance ? formatEther(walletBalance.value) : '0';
+  const handleMaxClick = () => {
+    if (walletBalance) {
+      setAmount(walletBalanceFormatted);
+    }
+  };
+
   return (
-    <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-xl p-6 border border-blue-500/30 backdrop-blur-sm">
+    <div className="bg-gray-900 rounded-xl p-6 border border-gray-700">
       <div className="mb-4">
         <h3 className="text-xl font-bold text-white mb-2">Deposit Funds</h3>
         <p className="text-sm text-gray-400">
           Deposit MNT to your account balance
         </p>
+      </div>
+
+      {/* Wallet Balance Display */}
+      <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-400">Wallet Balance:</span>
+          <span className="text-sm font-semibold text-white">
+            {parseFloat(walletBalanceFormatted).toFixed(4)} {walletBalance?.symbol || 'MNT'}
+          </span>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -121,17 +143,19 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
               type="number"
               step="0.001"
               min="0"
+              max={walletBalanceFormatted}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.0"
               disabled={isPending || isConfirming || isSuccess}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 pr-20 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             />
             <button
-              onClick={() => setAmount('1')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded"
+              onClick={handleMaxClick}
+              disabled={isPending || isConfirming || isSuccess || !walletBalance || parseFloat(walletBalanceFormatted) === 0}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded font-medium transition-colors cursor-pointer"
             >
-              1 MNT
+              Max
             </button>
           </div>
         </div>
@@ -152,7 +176,7 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
         <button
           onClick={handleDeposit}
           disabled={!amount || isPending || isConfirming || isSuccess}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full bg-white hover:bg-gray-200 disabled:bg-gray-600 disabled:to-gray-700 text-black disabled:text-gray-300 font-bold py-3 px-6 rounded-lg transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
         >
           {isPending && (
             <>
@@ -192,13 +216,13 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
         )}
 
         {error && (
-          <div className="text-red-400 text-sm p-3 bg-red-900/20 rounded-lg border border-red-800">
+          <div className="text-red-400 text-sm p-3 bg-gray-800 rounded-lg border border-red-800">
             {error.message}
           </div>
         )}
 
         {isSuccess && (
-          <div className="text-green-400 text-sm p-3 bg-green-900/20 rounded-lg border border-green-800">
+          <div className="text-green-400 text-sm p-3 bg-gray-800 rounded-lg border border-green-800">
             {savingToDB ? (
               <>
                 <div className="flex items-center gap-2">

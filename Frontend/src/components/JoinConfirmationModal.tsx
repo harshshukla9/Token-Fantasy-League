@@ -33,9 +33,9 @@ export function JoinConfirmationModal({
           </p>
         </div>
 
-        <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-6">
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
-            <span className="text-gray-300">Entry Fee:</span>
+            <span className="text-gray-400">Entry Fee:</span>
             <span className="text-2xl font-bold text-white">{feeInMNT} MNT</span>
           </div>
           <p className="text-xs text-gray-500 mt-2">
@@ -43,9 +43,9 @@ export function JoinConfirmationModal({
           </p>
         </div>
 
-        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 mb-6">
-          <p className="text-sm text-yellow-200">
-            <strong>Fees {feeInMNT} MNT</strong> will be charged to enter this lobby
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 mb-6">
+          <p className="text-sm text-gray-300">
+            <strong className="text-white">Fees {feeInMNT} MNT</strong> will be charged to enter this lobby
           </p>
         </div>
 
@@ -53,14 +53,14 @@ export function JoinConfirmationModal({
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white py-3 rounded-lg font-semibold transition-colors"
+            className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-lg font-semibold transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 text-white py-3 rounded-lg font-semibold transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex-1 bg-white hover:bg-gray-200 disabled:opacity-50 disabled:bg-gray-600 disabled:text-gray-300 text-black disabled:cursor-not-allowed py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <>

@@ -239,6 +239,20 @@ export function TeamSelectionModal({
     }
   }, [isSuccess, lobbyId, lobbyName, entryFee, selectedCryptos, captain, viceCaptain, address, onConfirm, handleClose, router]);
 
+  const getCrypto = useCallback((id: string) => {
+    return currentPrices.find((c) => c.id === id) || availableCryptos.find((c) => c.id === id);
+  }, [currentPrices]);
+
+  // Calculate team stats - must be before early return
+  const teamStats = useMemo(() => {
+    return {
+      selected: selectedCryptos.length,
+      total: 6,
+      captain: captain ? getCrypto(captain)?.symbol : null,
+      viceCaptain: viceCaptain ? getCrypto(viceCaptain)?.symbol : null,
+    };
+  }, [selectedCryptos.length, captain, viceCaptain, getCrypto]);
+
   if (!isOpen) return null;
 
   const handleCryptoSelect = (cryptoId: string) => {
@@ -266,8 +280,6 @@ export function TeamSelectionModal({
     if (captain === cryptoId) setCaptain(null);
     setViceCaptain(viceCaptain === cryptoId ? null : cryptoId);
   };
-
-  if (!isOpen) return null;
 
   const handleConfirm = () => {
     if (selectedCryptos.length !== 6) {
@@ -297,8 +309,6 @@ export function TeamSelectionModal({
       alert(`Invalid deposit amount: ${error?.message || 'Unknown error'}. Please try again.`);
     }
   };
-
-  const getCrypto = (id: string) => currentPrices.find((c) => c.id === id) || availableCryptos.find((c) => c.id === id);
 
   // Generate dummy price data for line graph
   const generatePriceData = (basePrice: number, change24h: number) => {
@@ -349,16 +359,6 @@ export function TeamSelectionModal({
       </svg>
     );
   };
-
-  // Calculate team stats
-  const teamStats = useMemo(() => {
-    return {
-      selected: selectedCryptos.length,
-      total: 6,
-      captain: captain ? getCrypto(captain)?.symbol : null,
-      viceCaptain: viceCaptain ? getCrypto(viceCaptain)?.symbol : null,
-    };
-  }, [selectedCryptos.length, captain, viceCaptain]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">

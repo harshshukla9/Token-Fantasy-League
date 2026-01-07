@@ -3,7 +3,12 @@
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
 
-export function SyncDepositsButton({ onSyncComplete }: { onSyncComplete?: () => void }) {
+interface SyncDepositsButtonProps {
+  onSyncComplete?: () => void;
+  onRefresh?: () => void;
+}
+
+export function SyncDepositsButton({ onSyncComplete, onRefresh }: SyncDepositsButtonProps) {
   const { address } = useAccount();
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -13,6 +18,11 @@ export function SyncDepositsButton({ onSyncComplete }: { onSyncComplete?: () => 
 
     setSyncing(true);
     setMessage(null);
+
+    // Immediately refresh balance and transactions
+    if (onRefresh) {
+      onRefresh();
+    }
 
     try {
       const response = await fetch('/api/sync-deposits', {
@@ -29,6 +39,13 @@ export function SyncDepositsButton({ onSyncComplete }: { onSyncComplete?: () => 
 
       setMessage(`✅ Synced ${data.synced} deposit(s)! Balance: ${parseFloat(data.balance) / 1e18} MNT`);
       
+      // Refresh balance and transactions again after sync completes
+      if (onRefresh) {
+        setTimeout(() => {
+          onRefresh();
+        }, 1000);
+      }
+      
       if (onSyncComplete) {
         setTimeout(() => {
           onSyncComplete();
@@ -44,18 +61,18 @@ export function SyncDepositsButton({ onSyncComplete }: { onSyncComplete?: () => 
   if (!address) return null;
 
   return (
-    <div className="bg-gradient-to-br from-yellow-900/30 to-orange-900/30 rounded-xl p-4 border border-yellow-500/30">
+    <div className="bg-gray-900 rounded-xl p-4 border border-gray-700">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-bold text-white mb-1">Sync Existing Deposits</h4>
+          <h4 className="text-sm font-bold text-white mb-1">Sync & Refresh</h4>
           <p className="text-xs text-gray-400">
-            Fetch your deposits from the blockchain and update your balance
+            Sync deposits from blockchain and refresh balance & transactions
           </p>
         </div>
         <button
           onClick={handleSync}
           disabled={syncing}
-          className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+          className="px-4 py-2 bg-white hover:bg-gray-200 disabled:opacity-50 disabled:bg-gray-600 text-black disabled:text-gray-300 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer"
         >
           {syncing ? (
             <>

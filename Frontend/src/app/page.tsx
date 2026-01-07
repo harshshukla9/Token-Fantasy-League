@@ -213,7 +213,7 @@ export default function LandingPage() {
           <div className="text-center mb-20">
             <h2 className="text-5xl font-bold text-white mb-4">Top Performers</h2>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              See who's leading the competition
+              See who&apos;s leading the competition
             </p>
           </div>
 
