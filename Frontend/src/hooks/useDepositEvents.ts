@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { usePublicClient, useWatchContractEvent } from 'wagmi';
+import { useWatchContractEvent } from 'wagmi';
 import { DepositABI } from '@/abis/Deposit';
 import { CONTRACT_ADDRESSES } from '@/shared/constants';
+import type { Log } from 'viem';
 
 interface DepositEvent {
   player: `0x${string}`;
@@ -16,9 +16,15 @@ interface UseDepositEventsOptions {
   enabled?: boolean;
 }
 
-export function useDepositEvents({ onDeposit, enabled = true }: UseDepositEventsOptions = {}) {
-  const publicClient = usePublicClient();
+interface DepositedLog extends Log {
+  args: {
+    player: `0x${string}`;
+    amount: bigint;
+    timestamp: bigint;
+  };
+}
 
+export function useDepositEvents({ onDeposit, enabled = true }: UseDepositEventsOptions = {}) {
   useWatchContractEvent({
     address: CONTRACT_ADDRESSES.DEPOSIT as `0x${string}`,
     abi: DepositABI,
@@ -27,19 +33,20 @@ export function useDepositEvents({ onDeposit, enabled = true }: UseDepositEvents
     onLogs: async (logs) => {
       for (const log of logs) {
         try {
-          const { player, amount, timestamp } = log.args as any;
+          const decodedLog = log as DepositedLog;
+          const { player, amount, timestamp } = decodedLog.args;
           
           if (!player || !amount || !timestamp) {
-            console.warn('Invalid deposit event:', log);
+            console.warn('Invalid deposit event:', decodedLog);
             continue;
           }
 
           const event: DepositEvent = {
-            player: player as `0x${string}`,
-            amount: BigInt(amount.toString()),
-            timestamp: BigInt(timestamp.toString()),
-            transactionHash: log.transactionHash,
-            blockNumber: log.blockNumber,
+            player,
+            amount,
+            timestamp,
+            transactionHash: decodedLog.transactionHash as `0x${string}`,
+            blockNumber: decodedLog.blockNumber as bigint ,
           };
 
           console.log('💰 Deposit event detected:', {

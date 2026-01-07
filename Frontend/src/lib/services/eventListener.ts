@@ -1,4 +1,4 @@
-import { createPublicClient, http, webSocket, parseAbiItem } from 'viem';
+import { createPublicClient, http, webSocket, parseAbiItem, defineChain } from 'viem';
 import { connectDB } from '../db/mongodb';
 import { User } from '../db/models/User';
 import { Transaction } from '../db/models/Transaction';
@@ -9,11 +9,10 @@ const RPC_URL = process.env.RPC_URL || 'https://rpc.sepolia.mantle.xyz';
 const WS_URL = process.env.WS_URL;
 const POLL_INTERVAL = 5000; // 5 seconds
 
-// Define Mantle Sepolia chain
-const mantleSepolia = {
+// Define Mantle Sepolia chain using defineChain
+const mantleSepolia = defineChain({
   id: 5003,
   name: 'Mantle Sepolia Testnet',
-  network: 'mantle-sepolia',
   nativeCurrency: {
     decimals: 18,
     name: 'MNT',
@@ -34,7 +33,7 @@ const mantleSepolia = {
     },
   },
   testnet: true,
-};
+});
 
 interface DepositedEvent {
   player: `0x${string}`;
@@ -57,7 +56,7 @@ export class DepositEventListener {
     console.log(`   WS: ${WS_URL || 'Not configured - using HTTP polling'}`);
     
     this.httpClient = createPublicClient({
-      chain: mantleSepolia as any,
+      chain: mantleSepolia,
       transport: http(RPC_URL),
     });
 
@@ -172,7 +171,7 @@ export class DepositEventListener {
       }
 
       this.wsClient = createPublicClient({
-        chain: mantleSepolia as any,
+        chain: mantleSepolia,
         transport: webSocket(WS_URL),
       });
 
