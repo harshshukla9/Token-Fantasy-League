@@ -8,38 +8,23 @@ import { ArrowLeft, Crown, Star, Check, Clock, Trophy, Coins } from 'lucide-reac
 import { useAccount } from '@/wallet-connect';
 import { parseEther } from 'viem';
 import { useDepositWithStatus } from '@/hooks/useCFL';
-import { formatDateTime, formatDuration, calculateEndTime, simulateCurrentPrice } from '@/shared/utils';
+import { formatDateTime, formatDuration, calculateEndTime } from '@/shared/utils';
 import { Lobby } from '@/hooks/useLobbies';
 import { useLobby } from '@/hooks/useLobbies';
 import { formatEther } from 'viem';
 import { JoinConfirmationModal } from '@/components/JoinConfirmationModal';
+import { useAvailableCryptos, AVAILABLE_CRYPTOS } from '@/hooks/useAvailableCryptos';
+import { CountdownTimer } from '@/components/CountdownTimer';
 
 export interface Cryptocurrency {
   id: string;
   symbol: string;
   name: string;
   price: number;
-  change24h: number;
+  change24h?: number;
   logo?: string;
+  currentPrice?: number;
 }
-
-const availableCryptos: Cryptocurrency[] = [
-  { id: 'btc', symbol: 'BTC', name: 'Bitcoin', price: 88150, change24h: 2.5, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png' },
-  { id: 'eth', symbol: 'ETH', name: 'Ethereum', price: 2977.8, change24h: 1.8, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png' },
-  { id: 'bnb', symbol: 'BNB', name: 'Binance Coin', price: 851.85, change24h: -0.5, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png' },
-  { id: 'sol', symbol: 'SOL', name: 'Solana', price: 126.10, change24h: 5.2, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/2087.png' },
-  { id: 'ada', symbol: 'ADA', name: 'Cardano', price: 0.38, change24h: 1.2, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/2010.png' },
-  { id: 'xrp', symbol: 'XRP', name: 'Ripple', price: 1.95, change24h: -1.1, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/52.png' },
-  { id: 'dot', symbol: 'DOT', name: 'Polkadot', price: 1.85, change24h: 3.4, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/6636.png' },
-  { id: 'matic', symbol: 'MATIC', name: 'Polygon', price: 0.85, change24h: 2.1, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png' },
-  { id: 'avax', symbol: 'AVAX', name: 'Avalanche', price: 12.32, change24h: 4.3, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/5805.png' },
-  { id: 'link', symbol: 'LINK', name: 'Chainlink', price: 13.5, change24h: 1.5, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1975.png' },
-  { id: 'ltc', symbol: 'LTC', name: 'Litecoin', price: 79, change24h: -0.8, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/2.png' },
-  { id: 'atom', symbol: 'ATOM', name: 'Cosmos', price: 1.98, change24h: 2.7, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/3794.png' },
-  { id: 'algo', symbol: 'ALGO', name: 'Algorand', price: 0.115, change24h: 1.9, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/4030.png' },
-  { id: 'vet', symbol: 'VET', name: 'VeChain', price: 0.0107, change24h: 0.6, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/3077.png' },
-  { id: 'icp', symbol: 'ICP', name: 'Internet Computer', price: 2.96, change24h: -2.1, logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/8916.png' },
-];
 
 function TokenFieldCard({ 
   crypto, 
@@ -122,7 +107,6 @@ export default function JoinLobbyPage() {
   const [selectedCryptos, setSelectedCryptos] = useState<string[]>([]);
   const [captain, setCaptain] = useState<string | null>(null);
   const [viceCaptain, setViceCaptain] = useState<string | null>(null);
-  const [priceUpdateTime, setPriceUpdateTime] = useState(Date.now());
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -132,6 +116,22 @@ export default function JoinLobbyPage() {
 
   // Fetch lobby data from API
   const { lobby, loading: lobbyLoading, error: lobbyError } = useLobby(lobbyId);
+
+  // Fetch real-time crypto prices from Binance
+  const { cryptos: cryptosWithPrices, loading: pricesLoading } = useAvailableCryptos({
+    interval: 5000, // Poll every 5 seconds
+    enabled: true,
+  });
+
+  // Convert to Cryptocurrency format for compatibility
+  const availableCryptos: Cryptocurrency[] = cryptosWithPrices.map((crypto) => ({
+    id: crypto.id,
+    symbol: crypto.symbol,
+    name: crypto.name,
+    price: crypto.price || 0, // Use real price or fallback to 0
+    logo: crypto.logo,
+    currentPrice: crypto.price || undefined,
+  }));
 
   // Check if user already has a team in this lobby
   useEffect(() => {
@@ -161,22 +161,13 @@ export default function JoinLobbyPage() {
     checkExistingTeam();
   }, [address, lobbyId, lobbyLoading]);
 
-  // Update prices every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPriceUpdateTime(Date.now());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Get current prices
+  // Get current prices (using real-time prices from Binance)
   const currentPrices = useMemo(() => {
-    const baseTimestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     return availableCryptos.map(crypto => ({
       ...crypto,
-      currentPrice: simulateCurrentPrice(crypto.price, crypto.change24h, baseTimestamp, 0.04),
+      currentPrice: crypto.price || crypto.currentPrice || 0,
     }));
-  }, [priceUpdateTime]);
+  }, [availableCryptos]);
 
   // Handle deposit success
   useEffect(() => {
@@ -193,7 +184,7 @@ export default function JoinLobbyPage() {
             symbol: crypto?.symbol || '',
             name: crypto?.name || '',
             initialPrice: crypto?.price || 0,
-            initialChange24h: crypto?.change24h || 0,
+            initialChange24h: crypto?.change24h ?? 0,
             isCaptain: cryptoId === captain,
             isViceCaptain: cryptoId === viceCaptain,
           };
@@ -341,14 +332,15 @@ export default function JoinLobbyPage() {
 
   const getCrypto = (id: string) => currentPrices.find((c) => c.id === id) || availableCryptos.find((c) => c.id === id);
 
-  const generatePriceData = (basePrice: number, change24h: number) => {
+  const generatePriceData = (basePrice: number, change24h?: number) => {
     const points = 20;
     const data: number[] = [];
-    const trend = change24h > 0 ? 1 : -1;
+    const change = change24h ?? 0;
+    const trend = change > 0 ? 1 : -1;
     
     for (let i = 0; i < points; i++) {
       const variation = (Math.random() - 0.5) * 0.1;
-      const trendFactor = (i / points) * (change24h / 100) * trend;
+      const trendFactor = (i / points) * (change / 100) * trend;
       const price = basePrice * (1 + variation + trendFactor);
       data.push(price);
     }
@@ -451,7 +443,7 @@ export default function JoinLobbyPage() {
 
             <div className="card p-6">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <h1 className="text-3xl font-bold text-white mb-2">{lobby.name}</h1>
                   <p className="text-sm text-gray-400">
                     Entry Fee: <span className="text-white font-semibold">
@@ -475,6 +467,22 @@ export default function JoinLobbyPage() {
                     </div>
                   )}
                 </div>
+                
+              {/* Countdown Timer */}
+              {lobby.startTime && lobby.interval && (() => {
+                const now = new Date();
+                const startTime = new Date(lobby.startTime);
+                const endTime = calculateEndTime(lobby.startTime, lobby.interval);
+                const hasStarted = now >= startTime;
+                const targetDate = hasStarted ? endTime : startTime;
+                const label = hasStarted ? 'Ends In' : 'Starts In';
+
+                return (
+                  <div className="ml-6 border-l border-gray-700 pl-6">
+                    <CountdownTimer targetDate={targetDate} label={label} />
+                  </div>
+                );
+              })()}
               </div>
             </div>
           </div>
@@ -617,18 +625,24 @@ export default function JoinLobbyPage() {
                         <p className="text-xs text-gray-400 mb-1">{crypto.name}</p>
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs text-gray-500">${crypto.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                          <span
-                            className={`text-xs font-semibold ${
-                              crypto.change24h >= 0 ? 'text-green-400' : 'text-red-400'
-                            }`}
-                          >
-                            {crypto.change24h >= 0 ? '+' : ''}
-                            {crypto.change24h.toFixed(1)}%
-                          </span>
+                          {crypto.change24h !== undefined ? (
+                            <span
+                              className={`text-xs font-semibold ${
+                                crypto.change24h >= 0 ? 'text-green-400' : 'text-red-400'
+                              }`}
+                            >
+                              {crypto.change24h >= 0 ? '+' : ''}
+                              {crypto.change24h.toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500">--</span>
+                          )}
                         </div>
-                        <div className="mt-2 mb-2">
-                          {renderMiniGraph(generatePriceData(crypto.currentPrice, crypto.change24h), crypto.change24h >= 0)}
-                        </div>
+                        {crypto.change24h !== undefined && (
+                          <div className="mt-2 mb-2">
+                            {renderMiniGraph(generatePriceData(crypto.currentPrice || 0, crypto.change24h), crypto.change24h >= 0)}
+                          </div>
+                        )}
                         {isCap && (
                           <div className="mt-2 flex items-center gap-1 text-xs text-white">
                             <Crown className="h-3 w-3" />

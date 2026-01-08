@@ -183,7 +183,8 @@ export function LobbiesList() {
   const isUserAdmin = address ? isAdmin(address) : false;
 
   const handleJoin = (lobbyId: string) => {
-    router.push(`/lobby/${lobbyId}/join`);
+    // Navigate to lobby view page (shows team if joined, or allows joining)
+    router.push(`/lobby/${lobbyId}`);
   };
 
   const filteredLobbies = lobbies.filter((lobby) => {
