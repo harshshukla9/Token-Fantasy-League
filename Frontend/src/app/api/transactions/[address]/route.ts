@@ -33,8 +33,6 @@ export async function GET(
       address: address.toLowerCase(),
     });
 
-    console.log(`📋 Fetched ${transactions.length} transactions for ${address}`);
-
     return NextResponse.json({
       transactions,
       total,
@@ -49,4 +47,3 @@ export async function GET(
     );
   }
 }
-

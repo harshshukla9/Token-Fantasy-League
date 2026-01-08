@@ -23,6 +23,8 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin, hasJoined = false })
   const router = useRouter();
   const isFull = lobby.currentParticipants >= lobby.maxParticipants;
   const isOpen = lobby.status === 'open' && !isFull;
+  const isLive = lobby.status === 'live';
+  const isEnded = lobby.status === 'ended';
   const participationPercentage = (lobby.currentParticipants / lobby.maxParticipants) * 100;
   
   // Convert wei to MNT for display
@@ -49,13 +51,17 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin, hasJoined = false })
           <span
             className={`rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wider ${
               isOpen
-                ? 'bg-white/20 text-white'
-                : isFull
-                  ? 'bg-gray-600/20 text-gray-400'
-                  : 'bg-gray-700/20 text-gray-500'
+                ? 'bg-green-500/20 text-green-400'
+                : isLive
+                  ? 'bg-blue-500/20 text-blue-400'
+                  : isEnded
+                    ? 'bg-gray-500/20 text-gray-400'
+                    : isFull
+                      ? 'bg-yellow-500/20 text-yellow-400'
+                      : 'bg-gray-700/20 text-gray-500'
             }`}
           >
-            {isOpen ? 'Open' : isFull ? 'Full' : 'Closed'}
+            {isOpen ? 'Open' : isLive ? 'Live' : isEnded ? 'Ended' : isFull ? 'Full' : 'Closed'}
           </span>
         </div>
       </td>
@@ -128,6 +134,10 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin, hasJoined = false })
               Create Team
               <ArrowRight className="h-4 w-4" />
             </>
+          ) : isLive ? (
+            'Live'
+          ) : isEnded ? (
+            'Ended'
           ) : isFull ? (
             'Full'
           ) : (

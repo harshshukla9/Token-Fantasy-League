@@ -36,24 +36,15 @@ export function useDepositEvents({ onDeposit, enabled = true }: UseDepositEvents
           const decodedLog = log as DepositedLog;
           const { player, amount, timestamp } = decodedLog.args;
           
-          if (!player || !amount || !timestamp) {
-            console.warn('Invalid deposit event:', decodedLog);
-            continue;
-          }
+          if (!player || !amount || !timestamp) continue;
 
           const event: DepositEvent = {
             player,
             amount,
             timestamp,
             transactionHash: decodedLog.transactionHash as `0x${string}`,
-            blockNumber: decodedLog.blockNumber as bigint ,
+            blockNumber: decodedLog.blockNumber as bigint,
           };
-
-          console.log('💰 Deposit event detected:', {
-            player: event.player,
-            amount: event.amount.toString(),
-            tx: event.transactionHash,
-          });
 
           if (onDeposit) {
             await onDeposit(event);
@@ -65,4 +56,3 @@ export function useDepositEvents({ onDeposit, enabled = true }: UseDepositEvents
     },
   });
 }
-

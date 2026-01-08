@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongodb';
 import { Lobby } from '@/lib/db/models/Lobby';
 import { LobbyParticipant } from '@/lib/db/models/LobbyParticipant';
+import { getPrizeForRank } from '@/lib/utils/prizeDistribution';
 
 // GET - Get all participants for a lobby
 export async function GET(
@@ -38,21 +39,32 @@ export async function GET(
       .sort({ points: -1, joinedAt: 1 }) // Sort by points (desc), then by join time
       .lean();
 
-    // Format participants
-    const formattedParticipants = participants.map((participant, index) => ({
-      id: participant._id.toString(),
-      address: participant.address,
-      team: {
-        cryptos: participant.team?.cryptos || [],
-        captain: participant.team?.captain || null,
-        viceCaptain: participant.team?.viceCaptain || null,
-      },
-      entryFee: participant.entryFee || '0',
-      points: participant.points || 0,
-      rank: index + 1,
-      joinedAt: participant.joinedAt,
-      isCurrentUser: address ? participant.address.toLowerCase() === address.toLowerCase() : false,
-    }));
+    const totalParticipants = participants.length;
+    const prizePool = BigInt(lobby.prizePool || '0');
+    const isEnded = lobby.status === 'ended' || lobby.status === 'closed';
+
+    // Format participants with prize information
+    const formattedParticipants = participants.map((participant, index) => {
+      const rank = index + 1;
+      const prizeAmount = getPrizeForRank(rank, totalParticipants, prizePool);
+      
+      return {
+        id: participant._id.toString(),
+        address: participant.address,
+        team: {
+          cryptos: participant.team?.cryptos || [],
+          captain: participant.team?.captain || null,
+          viceCaptain: participant.team?.viceCaptain || null,
+        },
+        entryFee: participant.entryFee || '0',
+        points: participant.points || 0,
+        rank,
+        prizeAmount: prizeAmount.toString(),
+        hasPrize: prizeAmount > BigInt(0),
+        joinedAt: participant.joinedAt,
+        isCurrentUser: address ? participant.address.toLowerCase() === address.toLowerCase() : false,
+      };
+    });
 
     return NextResponse.json({
       participants: formattedParticipants,
@@ -62,6 +74,9 @@ export async function GET(
         name: lobby.name,
         maxParticipants: lobby.maxParticipants,
         currentParticipants: formattedParticipants.length,
+        prizePool: prizePool.toString(),
+        status: lobby.status,
+        isEnded,
       },
     });
   } catch (error) {

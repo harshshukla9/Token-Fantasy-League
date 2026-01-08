@@ -11,6 +11,8 @@ export interface LobbyParticipant {
   entryFee: string;
   points: number;
   rank: number;
+  prizeAmount: string;
+  hasPrize: boolean;
   joinedAt: Date | string;
   isCurrentUser: boolean;
 }

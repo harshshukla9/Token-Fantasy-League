@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/db/mongodb';
 import { Lobby } from '@/lib/db/models/Lobby';
 import { LobbyParticipant } from '@/lib/db/models/LobbyParticipant';
 import { isAdmin, requireAdmin } from '@/lib/utils/admin';
+import { calculateLobbyStatus } from '@/lib/utils/lobbyStatus';
 
 // GET - Get all lobbies
 export async function GET(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     // Build query
     const query: any = {};
-    if (status && ['open', 'full', 'closed', 'active', 'ended'].includes(status)) {
+    if (status && ['open', 'live', 'full', 'ended', 'closed'].includes(status)) {
       query.status = status;
     }
 
@@ -39,11 +40,14 @@ export async function GET(request: NextRequest) {
         const prizePool = (totalFees * BigInt(90)) / BigInt(100);
         const protocolFee = (totalFees * BigInt(10)) / BigInt(100);
 
-        // Update status based on participants
-        let updatedStatus = lobby.status;
-        if (participantCount >= lobby.maxParticipants && lobby.status === 'open') {
-          updatedStatus = 'full';
-        }
+        // Calculate status based on time and participants
+        const calculatedStatus = calculateLobbyStatus(
+          lobby.startTime,
+          lobby.interval,
+          participantCount,
+          lobby.maxParticipants,
+          lobby.status
+        );
 
         return {
           id: lobby._id.toString(),
@@ -55,7 +59,7 @@ export async function GET(request: NextRequest) {
           prizePool: prizePool.toString(),
           protocolFee: protocolFee.toString(),
           totalFees: totalFees.toString(),
-          status: updatedStatus,
+          status: calculatedStatus,
           startTime: lobby.startTime,
           interval: lobby.interval,
           createdBy: lobby.createdBy,
@@ -136,8 +140,6 @@ export async function POST(request: NextRequest) {
       protocolFee: '0',
       createdBy: createdBy.toLowerCase(),
     });
-
-    console.log('✅ Lobby created:', lobby._id);
 
     return NextResponse.json({
       success: true,

@@ -210,22 +210,29 @@ export async function POST(
         };
       });
 
-      await PriceSnapshot.findOneAndUpdate(
-        {
-          lobbyId: lobby._id,
-          participantId: participant._id,
-          snapshotType: 'current',
-        },
-        {
-          lobbyId: lobby._id,
-          participantId: participant._id,
-          address: participant.address,
-          snapshotType: 'current',
-          prices: participantPrices,
-          timestamp: new Date(),
-        },
-        { upsert: true, new: true }
-      );
+      try {
+        await PriceSnapshot.findOneAndUpdate(
+          {
+            lobbyId: lobby._id,
+            participantId: participant._id,
+            snapshotType: 'current',
+          },
+          {
+            lobbyId: lobby._id,
+            participantId: participant._id,
+            address: participant.address,
+            snapshotType: 'current',
+            prices: participantPrices,
+            timestamp: new Date(),
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } catch (error: any) {
+        // Handle duplicate key error (race condition)
+        if (error.code !== 11000) {
+          throw error;
+        }
+      }
     }
 
     return NextResponse.json({

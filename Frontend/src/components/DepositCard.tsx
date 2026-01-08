@@ -32,7 +32,6 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
         return;
       }
 
-      console.log('💰 Deposit event detected, saving to database...', event);
       setSavingToDB(true);
 
       try {
@@ -52,16 +51,12 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
           throw new Error('Failed to save deposit');
         }
 
-        const data = await response.json();
-        console.log('✅ Deposit saved to database:', data);
-
-        // Refresh balance after saving
         setTimeout(() => {
           onDepositSuccess?.();
           setSavingToDB(false);
         }, 1000);
       } catch (error) {
-        console.error('❌ Failed to save deposit to database:', error);
+        console.error('Failed to save deposit:', error);
         setSavingToDB(false);
       }
     },
@@ -83,7 +78,6 @@ export function DepositCard({ onDepositSuccess }: { onDepositSuccess?: () => voi
         value: parseEther(amount),
       });
     } catch (err) {
-      console.error('Deposit error:', err);
       setIsDepositing(false);
     }
   };
