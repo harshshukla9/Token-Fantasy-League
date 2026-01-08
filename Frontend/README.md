@@ -4,7 +4,7 @@ A token-based fantasy gaming platform where users create teams of cryptocurrenci
 
 This transforms passive crypto watching into a skill-based, competitive, and rewarding experience.
 
-## 🎯 Core Concept
+## 🎯 Core Concepts
 
 Users select **8 cryptocurrencies** to form a fantasy team.
 
