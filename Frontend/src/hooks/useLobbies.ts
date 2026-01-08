@@ -10,7 +10,7 @@ export interface Lobby {
   prizePool: string; // in wei
   protocolFee: string; // in wei
   totalFees: string; // in wei
-  status: 'open' | 'full' | 'closed' | 'active' | 'ended';
+  status: 'open' | 'live' | 'full' | 'closed' | 'active' | 'ended';
   startTime: Date | string;
   interval: number; // in seconds
   createdBy: string;

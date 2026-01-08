@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongodb';
 import { Lobby } from '@/lib/db/models/Lobby';
 import { LobbyParticipant } from '@/lib/db/models/LobbyParticipant';
+import { calculateLobbyStatus } from '@/lib/utils/lobbyStatus';
 
 // GET - Get single lobby details
 export async function GET(
@@ -39,11 +40,14 @@ export async function GET(
     const prizePool = (totalFees * BigInt(90)) / BigInt(100);
     const protocolFee = (totalFees * BigInt(10)) / BigInt(100);
 
-    // Determine status
-    let status = lobby.status;
-    if (participantCount >= lobby.maxParticipants && lobby.status === 'open') {
-      status = 'full';
-    }
+    // Calculate status based on time and participants
+    const status = calculateLobbyStatus(
+      lobby.startTime,
+      lobby.interval,
+      participantCount,
+      lobby.maxParticipants,
+      lobby.status
+    );
 
     return NextResponse.json({
       id: lobby._id.toString(),

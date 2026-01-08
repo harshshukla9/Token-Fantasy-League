@@ -7,11 +7,13 @@ export interface ILobby {
   numberOfCoins: number; // Number of cryptocurrencies (default 8)
   startTime: Date;
   interval: number; // Duration in seconds
-  status: 'open' | 'full' | 'closed' | 'active' | 'ended';
+  status: 'open' | 'live' | 'full' | 'ended' | 'closed';
   currentParticipants: number; // Calculated field
   totalFees: string; // Total fees collected in wei
   prizePool: string; // 90% of total fees in wei
   protocolFee: string; // 10% of total fees in wei
+  prizesDistributed: boolean; // Whether prizes have been distributed
+  prizesDistributedAt?: Date; // When prizes were distributed
   createdBy: string; // Admin address
   createdAt: Date;
   updatedAt: Date;
@@ -51,7 +53,7 @@ const LobbySchema = new Schema<ILobby>(
     },
     status: {
       type: String,
-      enum: ['open', 'full', 'closed', 'active', 'ended'],
+      enum: ['open', 'live', 'full', 'ended', 'closed'],
       default: 'open',
       index: true,
     },
@@ -71,6 +73,13 @@ const LobbySchema = new Schema<ILobby>(
     protocolFee: {
       type: String,
       default: '0',
+    },
+    prizesDistributed: {
+      type: Boolean,
+      default: false,
+    },
+    prizesDistributedAt: {
+      type: Date,
     },
     createdBy: {
       type: String,

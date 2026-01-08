@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { formatEther } from 'viem';
 import { useBalance } from '@/hooks/useBalance';
 import { useAccount } from 'wagmi';
+import { LogOut } from 'lucide-react';
 
 export function BalanceCard() {
   const { address, isConnected } = useAccount();
   const { balance, loading, error, refetch } = useBalance();
+  const [withdrawing, setWithdrawing] = useState(false);
 
   if (!isConnected) {
     return (
@@ -53,13 +56,37 @@ export function BalanceCard() {
       </div>
 
       {error && (
-        <div className="text-red-400 text-sm">
+        <div className="text-red-400 text-sm mb-4">
           {error}
         </div>
       )}
 
       <div className="pt-4 border-t border-gray-700">
-        <p className="text-xs text-gray-500">
+        <button
+          onClick={() => {
+            setWithdrawing(true);
+            // Dummy withdraw function - just show alert for now
+            setTimeout(() => {
+              alert('Withdraw functionality will be implemented soon. This is a placeholder button.');
+              setWithdrawing(false);
+            }, 500);
+          }}
+          disabled={withdrawing || parseFloat(balanceInEth) === 0}
+          className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-200 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-black font-semibold py-3 px-4 rounded-lg transition-all cursor-pointer"
+        >
+          {withdrawing ? (
+            <>
+              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+              Processing...
+            </>
+          ) : (
+            <>
+              <LogOut className="w-4 h-4" />
+              Withdraw
+            </>
+          )}
+        </button>
+        <p className="text-xs text-gray-500 mt-2 text-center">
           Stored in database • Real-time updates
         </p>
       </div>

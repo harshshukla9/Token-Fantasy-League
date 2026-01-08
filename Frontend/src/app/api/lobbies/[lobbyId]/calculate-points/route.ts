@@ -142,7 +142,6 @@ export async function POST(
       );
     }
 
-    console.log(`✅ Calculated and updated points for ${updatedParticipants.length} participants`);
 
     return NextResponse.json({
       success: true,

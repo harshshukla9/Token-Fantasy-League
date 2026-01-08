@@ -11,9 +11,6 @@ export function TransactionHistory() {
 
   // Debug logging
   React.useEffect(() => {
-    if (transactions && transactions.length > 0) {
-      console.log('📋 Transactions loaded:', transactions.length, transactions);
-    }
   }, [transactions]);
 
   if (!isConnected) {

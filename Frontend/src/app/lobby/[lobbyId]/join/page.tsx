@@ -7,7 +7,9 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { ArrowLeft, Crown, Star, Check, Clock, Trophy, Coins } from 'lucide-react';
 import { useAccount } from '@/wallet-connect';
 import { parseEther } from 'viem';
-import { useDepositWithStatus } from '@/hooks/useCFL';
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { DepositABI } from '@/abis/Deposit';
+import { CONTRACT_ADDRESSES } from '@/shared/constants';
 import { formatDateTime, formatDuration, calculateEndTime } from '@/shared/utils';
 import { Lobby } from '@/hooks/useLobbies';
 import { useLobby } from '@/hooks/useLobbies';
@@ -15,6 +17,7 @@ import { formatEther } from 'viem';
 import { JoinConfirmationModal } from '@/components/JoinConfirmationModal';
 import { useAvailableCryptos, AVAILABLE_CRYPTOS } from '@/hooks/useAvailableCryptos';
 import { CountdownTimer } from '@/components/CountdownTimer';
+import { canCreateTeam } from '@/lib/utils/lobbyStatus';
 
 export interface Cryptocurrency {
   id: string;
@@ -102,7 +105,12 @@ export default function JoinLobbyPage() {
   const router = useRouter();
   const lobbyId = params.lobbyId as string;
   const { address, isConnected } = useAccount();
-  const { deposit, isPending, isConfirming, isSuccess, error } = useDepositWithStatus();
+  
+  // Deposit contract interaction
+  const { writeContract, data: depositHash, isPending: isDepositing, error: depositError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isDepositConfirmed } = useWaitForTransactionReceipt({
+    hash: depositHash,
+  });
 
   const [selectedCryptos, setSelectedCryptos] = useState<string[]>([]);
   const [captain, setCaptain] = useState<string | null>(null);
@@ -113,6 +121,7 @@ export default function JoinLobbyPage() {
   const [joinSuccess, setJoinSuccess] = useState(false);
   const [hasExistingTeam, setHasExistingTeam] = useState(false);
   const [loadingTeam, setLoadingTeam] = useState(false);
+  const [depositTxHash, setDepositTxHash] = useState<string | null>(null);
 
   // Fetch lobby data from API
   const { lobby, loading: lobbyLoading, error: lobbyError } = useLobby(lobbyId);
@@ -168,56 +177,6 @@ export default function JoinLobbyPage() {
       currentPrice: crypto.price || crypto.currentPrice || 0,
     }));
   }, [availableCryptos]);
-
-  // Handle deposit success
-  useEffect(() => {
-    if (isSuccess && lobby) {
-      const teamData = {
-        lobbyId: lobby.id,
-        lobbyName: lobby.name,
-        entryFee: lobby.depositAmount,
-        userAddress: address || '',
-        selectedCryptos: selectedCryptos.map((cryptoId) => {
-          const crypto = availableCryptos.find((c) => c.id === cryptoId);
-          return {
-            id: cryptoId,
-            symbol: crypto?.symbol || '',
-            name: crypto?.name || '',
-            initialPrice: crypto?.price || 0,
-            initialChange24h: crypto?.change24h ?? 0,
-            isCaptain: cryptoId === captain,
-            isViceCaptain: cryptoId === viceCaptain,
-          };
-        }),
-        captain: captain || '',
-        viceCaptain: viceCaptain || '',
-        joinedAt: new Date().toISOString(),
-      };
-
-      try {
-        const existingTeams = JSON.parse(localStorage.getItem('fantasyTeams') || '[]');
-        existingTeams.push(teamData);
-        localStorage.setItem('fantasyTeams', JSON.stringify(existingTeams));
-        
-        const allCoinPrices = availableCryptos.map((crypto) => ({
-          id: crypto.id,
-          symbol: crypto.symbol,
-          name: crypto.name,
-          price: crypto.price,
-          change24h: crypto.change24h,
-          timestamp: new Date().toISOString(),
-        }));
-        localStorage.setItem('coinInitialPrices', JSON.stringify(allCoinPrices));
-      } catch (error) {
-        console.error('Failed to save team to localStorage:', error);
-      }
-
-      // Navigate to lobby page
-      setTimeout(() => {
-        router.push(`/lobby/${lobbyId}`);
-      }, 500);
-    }
-  }, [isSuccess, lobby, selectedCryptos, captain, viceCaptain, address, lobbyId, router]);
 
   const requiredCoins = lobby?.numberOfCoins || 6;
 
@@ -287,12 +246,49 @@ export default function JoinLobbyPage() {
 
   const handleConfirmJoin = async () => {
     if (!lobby || !address) {
+      setJoinError('Please connect your wallet');
       return;
     }
 
+    // Step 1: Deposit to smart contract
+    try {
+      const entryFee = BigInt(lobby.depositAmount || '0');
+      
+      writeContract({
+        address: CONTRACT_ADDRESSES.DEPOSIT as `0x${string}`,
+        abi: DepositABI,
+        functionName: 'deposit',
+        value: entryFee,
+      });
+    } catch (error) {
+      console.error('Deposit error:', error);
+      setJoinError(error instanceof Error ? error.message : 'Failed to deposit');
+      setShowConfirmModal(false);
+    }
+  };
+
+  // Update deposit hash when transaction is submitted
+  useEffect(() => {
+    if (depositHash) {
+      setDepositTxHash(depositHash);
+    }
+  }, [depositHash]);
+
+  // When deposit confirmed, join the lobby (only once)
+  const [hasTriggeredJoin, setHasTriggeredJoin] = useState(false);
+  
+  useEffect(() => {
+    if (isDepositConfirmed && depositHash && !joining && !joinSuccess && !hasTriggeredJoin && lobby && address) {
+      setHasTriggeredJoin(true);
+      handleJoinLobby(depositHash);
+    }
+  }, [isDepositConfirmed, depositHash, joining, joinSuccess, hasTriggeredJoin, lobby, address, lobbyId]);
+
+  const handleJoinLobby = useCallback(async (transactionHash: string) => {
+    if (!lobby || !address) return;
+
     setJoining(true);
     setJoinError(null);
-    setShowConfirmModal(false);
 
     try {
       const response = await fetch(`/api/lobbies/${lobbyId}/join`, {
@@ -300,11 +296,8 @@ export default function JoinLobbyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address,
-          team: {
-            cryptos: selectedCryptos,
-            captain,
-            viceCaptain,
-          },
+          team: { cryptos: selectedCryptos, captain, viceCaptain },
+          transactionHash,
         }),
       });
 
@@ -314,21 +307,18 @@ export default function JoinLobbyPage() {
         throw new Error(data.error || 'Failed to join lobby');
       }
 
-      // Show success message
       setJoinSuccess(true);
+      setShowConfirmModal(false);
       
-      // Redirect after 2 seconds
       setTimeout(() => {
         router.push(`/lobby/${lobbyId}`);
       }, 2000);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to join lobby';
-      setJoinError(errorMessage);
-      console.error('Join lobby error:', err);
+      setJoinError(err instanceof Error ? err.message : 'Failed to join lobby');
     } finally {
       setJoining(false);
     }
-  };
+  }, [lobby, address, lobbyId, selectedCryptos, captain, viceCaptain, router]);
 
   const getCrypto = (id: string) => currentPrices.find((c) => c.id === id) || availableCryptos.find((c) => c.id === id);
 
@@ -857,11 +847,19 @@ export default function JoinLobbyPage() {
         {lobby && (
           <JoinConfirmationModal
             isOpen={showConfirmModal}
-            onClose={() => setShowConfirmModal(false)}
+            onClose={() => {
+              setShowConfirmModal(false);
+              setDepositTxHash(null);
+              setJoinError(null);
+            }}
             onConfirm={handleConfirmJoin}
             entryFee={lobby.depositAmount}
             lobbyName={lobby.name}
             loading={joining}
+            depositing={isDepositing}
+            confirming={isConfirming}
+            transactionHash={depositTxHash || undefined}
+            error={depositError?.message || joinError || undefined}
           />
         )}
       </ProtectedRoute>

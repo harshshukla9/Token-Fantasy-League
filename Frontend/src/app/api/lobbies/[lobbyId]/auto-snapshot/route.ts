@@ -154,27 +154,48 @@ export async function POST(
         };
       });
 
-      // Remove existing snapshot of this type
-      await PriceSnapshot.deleteOne({
-        lobbyId: lobby._id,
-        participantId: participant._id,
-        snapshotType,
-      });
+      // Use findOneAndUpdate with upsert to handle race conditions
+      try {
+        const snapshot = await PriceSnapshot.findOneAndUpdate(
+          {
+            lobbyId: lobby._id,
+            participantId: participant._id,
+            snapshotType,
+          },
+          {
+            lobbyId: lobby._id,
+            participantId: participant._id,
+            address: participant.address,
+            snapshotType,
+            prices: participantPrices,
+            timestamp: new Date(),
+          },
+          {
+            upsert: true,
+            new: true,
+            setDefaultsOnInsert: true,
+          }
+        );
 
-      // Create new snapshot
-      const snapshot = await PriceSnapshot.create({
-        lobbyId: lobby._id,
-        participantId: participant._id,
-        address: participant.address,
-        snapshotType,
-        prices: participantPrices,
-        timestamp: new Date(),
-      });
-
-      snapshots.push(snapshot);
+        snapshots.push(snapshot);
+      } catch (error: any) {
+        // Handle duplicate key error (race condition)
+        if (error.code === 11000) {
+          // Snapshot already exists, fetch it instead
+          const existingSnapshot = await PriceSnapshot.findOne({
+            lobbyId: lobby._id,
+            participantId: participant._id,
+            snapshotType,
+          });
+          if (existingSnapshot) {
+            snapshots.push(existingSnapshot);
+          }
+        } else {
+          throw error;
+        }
+      }
     }
 
-    console.log(`✅ Auto-created ${snapshots.length} ${snapshotType} snapshots for lobby ${lobbyId}`);
 
     return NextResponse.json({
       success: true,

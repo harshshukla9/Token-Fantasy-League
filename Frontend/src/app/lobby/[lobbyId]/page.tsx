@@ -13,6 +13,7 @@ import { useLobbyParticipants } from '@/hooks/useLobbyParticipants';
 import { useAvailableCryptos } from '@/hooks/useAvailableCryptos';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { useLobbyPoints } from '@/hooks/useLobbyPoints';
+import { canCreateTeam } from '@/lib/utils/lobbyStatus';
 
 export default function LobbyViewPage() {
   const params = useParams();
@@ -276,10 +277,28 @@ export default function LobbyViewPage() {
                   <p className="text-gray-400 mb-4">You haven&apos;t joined this lobby yet</p>
                   <button
                     onClick={() => router.push(`/lobby/${lobbyId}/join`)}
-                    className="px-6 py-2 bg-white text-black rounded-lg hover:bg-gray-200 font-semibold transition-colors"
+                    disabled={!canCreateTeam(lobby.status)}
+                    className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                      canCreateTeam(lobby.status)
+                        ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
+                        : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }`}
                   >
-                    Create Team & Join
+                    {lobby.status === 'live' 
+                      ? 'Market is Live - Team Creation Closed'
+                      : lobby.status === 'ended'
+                        ? 'Market Ended'
+                        : lobby.status === 'full'
+                          ? 'Lobby Full'
+                          : 'Create Team & Join'}
                   </button>
+                  {!canCreateTeam(lobby.status) && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      {lobby.status === 'live' && 'Teams can only be created before the market starts'}
+                      {lobby.status === 'ended' && 'This lobby has ended'}
+                      {lobby.status === 'full' && 'Maximum participants reached'}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -369,6 +388,11 @@ export default function LobbyViewPage() {
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <div className="text-white font-semibold">{participant.points.toFixed(2)} pts</div>
+                            {participant.hasPrize && (
+                              <div className="text-xs text-yellow-400 font-medium">
+                                Prize: {parseFloat(formatEther(BigInt(participant.prizeAmount))).toFixed(4)} MNT
+                              </div>
+                            )}
                             <div className="text-xs text-gray-400">
                               {new Date(participant.joinedAt).toLocaleDateString()}
                             </div>
@@ -394,9 +418,13 @@ export default function LobbyViewPage() {
                       className={`font-semibold ${
                         lobby.status === 'open'
                           ? 'text-green-400'
-                          : lobby.status === 'full'
-                            ? 'text-yellow-400'
-                            : 'text-gray-400'
+                          : lobby.status === 'live'
+                            ? 'text-blue-400'
+                            : lobby.status === 'ended'
+                              ? 'text-gray-400'
+                              : lobby.status === 'full'
+                                ? 'text-yellow-400'
+                                : 'text-gray-400'
                       }`}
                     >
                       {lobby.status.toUpperCase()}
