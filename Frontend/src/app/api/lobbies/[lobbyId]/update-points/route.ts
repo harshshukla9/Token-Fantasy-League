@@ -4,6 +4,8 @@ import { Lobby } from '@/lib/db/models/Lobby';
 import { LobbyParticipant } from '@/lib/db/models/LobbyParticipant';
 import { PriceSnapshot } from '@/lib/db/models/PriceSnapshot';
 import { roundPriceToPrecision } from '@/lib/utils/pricePrecision';
+import { calculateLobbyStatus } from '@/lib/utils/lobbyStatus';
+import { LobbyParticipant as LobbyParticipantModel } from '@/lib/db/models/LobbyParticipant';
 
 // POST - Update points using current prices from Binance API
 // This endpoint fetches current prices and calculates points
@@ -30,6 +32,54 @@ export async function POST(
         { error: 'Lobby not found' },
         { status: 404 }
       );
+    }
+
+    // Check if lobby has ended - if so, use end snapshot prices instead
+    const participantCount = await LobbyParticipantModel.countDocuments({
+      lobbyId: lobby._id,
+    });
+    
+    const currentStatus = calculateLobbyStatus(
+      lobby.startTime,
+      lobby.interval,
+      participantCount,
+      lobby.maxParticipants,
+      lobby.status
+    );
+
+    // If lobby has ended, use end snapshot prices (final leaderboard)
+    if (currentStatus === 'ended' || currentStatus === 'closed') {
+      // Get end snapshots
+      const endSnapshots = await PriceSnapshot.find({
+        lobbyId: lobby._id,
+        snapshotType: 'end',
+      }).lean();
+
+      if (endSnapshots.length === 0) {
+        // If no end snapshot, try to use the last current snapshot
+        const lastSnapshots = await PriceSnapshot.find({
+          lobbyId: lobby._id,
+          snapshotType: 'current',
+        })
+          .sort({ timestamp: -1 })
+          .limit(1)
+          .lean();
+
+        if (lastSnapshots.length === 0) {
+          return NextResponse.json(
+            { error: 'Lobby has ended but no final snapshot found', ended: true },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Return early - points should not be updated after lobby ends
+      return NextResponse.json({
+        success: true,
+        message: 'Lobby has ended. Final leaderboard is locked.',
+        ended: true,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     // Get all participants

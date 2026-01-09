@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
-import { Users, DollarSign, Coins, ArrowRight, Clock, Plus } from 'lucide-react';
+import { Users, DollarSign, Coins, ArrowRight, Clock, Plus, Trophy } from 'lucide-react';
 import { formatEther } from 'viem';
 import { formatDateTime, formatDuration, calculateEndTime } from '@/shared/utils';
 import { useLobbies, Lobby } from '@/hooks/useLobbies';
@@ -32,7 +32,10 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin, hasJoined = false })
   const prizePoolMNT = parseFloat(formatEther(BigInt(lobby.prizePool || '0')));
 
   const handleAction = () => {
-    if (hasJoined) {
+    if (isEnded) {
+      // Navigate to lobby page to view winners/final leaderboard
+      router.push(`/lobby/${lobby.id}`);
+    } else if (hasJoined) {
       router.push(`/lobby/${lobby.id}`);
     } else if (onJoin) {
       onJoin(lobby.id);
@@ -118,16 +121,23 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin, hasJoined = false })
       <td className="px-6 py-4">
         <button
           onClick={handleAction}
-          disabled={!isOpen && !hasJoined}
+          disabled={!isOpen && !hasJoined && !isEnded}
           className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all whitespace-nowrap ${
-            hasJoined
-              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 cursor-pointer'
-              : isOpen
-                ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
-                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+            isEnded
+              ? 'bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white cursor-pointer'
+              : hasJoined
+                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 cursor-pointer'
+                : isOpen
+                  ? 'bg-white text-black hover:bg-gray-200 cursor-pointer'
+                  : 'bg-gray-800 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {hasJoined ? (
+          {isEnded ? (
+            <>
+              <Trophy className="h-4 w-4" />
+              View Winners
+            </>
+          ) : hasJoined ? (
             'ALREADY JOINED'
           ) : isOpen ? (
             <>
@@ -136,8 +146,6 @@ const LobbyRow: React.FC<LobbyRowProps> = ({ lobby, onJoin, hasJoined = false })
             </>
           ) : isLive ? (
             'Live'
-          ) : isEnded ? (
-            'Ended'
           ) : isFull ? (
             'Full'
           ) : (
@@ -153,7 +161,7 @@ export function LobbiesList() {
   const router = useRouter();
   const { address } = useAccount();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'full' | 'closed'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'full' | 'closed' | 'ended'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [joinedLobbies, setJoinedLobbies] = useState<Set<string>>(new Set());
   
@@ -203,7 +211,8 @@ export function LobbiesList() {
       filterStatus === 'all' ||
       (filterStatus === 'open' && lobby.status === 'open' && lobby.currentParticipants < lobby.maxParticipants) ||
       (filterStatus === 'full' && lobby.currentParticipants >= lobby.maxParticipants) ||
-      (filterStatus === 'closed' && lobby.status === 'closed');
+      (filterStatus === 'closed' && lobby.status === 'closed') ||
+      (filterStatus === 'ended' && (lobby.status === 'ended' || lobby.status === 'closed'));
     return matchesSearch && matchesFilter;
   });
 
@@ -246,7 +255,7 @@ export function LobbiesList() {
 
         {/* Filter Buttons */}
         <div className="flex gap-2">
-          {(['all', 'open', 'full', 'closed'] as const).map((status) => (
+          {(['all', 'open', 'full', 'closed', 'ended'] as const).map((status) => (
             <button
               key={status}
               onClick={() => setFilterStatus(status)}

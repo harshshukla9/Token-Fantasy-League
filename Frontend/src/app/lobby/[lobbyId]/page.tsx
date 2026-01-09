@@ -28,8 +28,13 @@ export default function LobbyViewPage() {
   );
   const { cryptos: availableCryptos } = useAvailableCryptos({ enabled: true });
   
-  // Auto-update points every 10 seconds
-  const { updating: pointsUpdating, lastUpdate } = useLobbyPoints(lobbyId, true);
+  // Auto-update points every 10 seconds (stops when lobby ends)
+  const { updating: pointsUpdating, lastUpdate, isEnded: pointsEnded } = useLobbyPoints(
+    lobbyId,
+    lobby?.status !== 'ended' && lobby?.status !== 'closed'
+  );
+  
+  const isLobbyEnded = lobby?.status === 'ended' || lobby?.status === 'closed' || pointsEnded;
   
   // Refetch participants when points are updated
   useEffect(() => {
@@ -302,17 +307,103 @@ export default function LobbyViewPage() {
                 </div>
               )}
 
+              {/* Winners Section - Show when lobby has ended */}
+              {isLobbyEnded && participants.length > 0 && (
+                <div className="card p-6 mb-6 bg-gradient-to-br from-yellow-900/20 to-orange-900/20 border-yellow-500/30">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Trophy className="w-6 h-6 text-yellow-400" />
+                    <h2 className="text-2xl font-bold text-white">🏆 Tournament Winners</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* 1st Place */}
+                    {participants[0] && (
+                      <div className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 border-2 border-yellow-500/50 rounded-xl p-4 text-center">
+                        <div className="flex items-center justify-center mb-2">
+                          <Trophy className="w-8 h-8 text-yellow-400" />
+                        </div>
+                        <div className="text-yellow-400 font-bold text-lg mb-1">1st Place</div>
+                        <div className="text-white font-semibold mb-2">
+                          {participants[0].address.slice(0, 6)}...{participants[0].address.slice(-4)}
+                        </div>
+                        <div className="text-yellow-300 font-bold text-xl mb-1">
+                          {participants[0].points.toFixed(2)} pts
+                        </div>
+                        {participants[0].hasPrize && (
+                          <div className="text-yellow-400 text-sm font-medium">
+                            Prize: {parseFloat(formatEther(BigInt(participants[0].prizeAmount))).toFixed(4)} MNT
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* 2nd Place */}
+                    {participants[1] && (
+                      <div className="bg-gradient-to-br from-gray-400/20 to-gray-500/20 border-2 border-gray-400/50 rounded-xl p-4 text-center">
+                        <div className="flex items-center justify-center mb-2">
+                          <Trophy className="w-8 h-8 text-gray-300" />
+                        </div>
+                        <div className="text-gray-300 font-bold text-lg mb-1">2nd Place</div>
+                        <div className="text-white font-semibold mb-2">
+                          {participants[1].address.slice(0, 6)}...{participants[1].address.slice(-4)}
+                        </div>
+                        <div className="text-gray-200 font-bold text-xl mb-1">
+                          {participants[1].points.toFixed(2)} pts
+                        </div>
+                        {participants[1].hasPrize && (
+                          <div className="text-gray-300 text-sm font-medium">
+                            Prize: {parseFloat(formatEther(BigInt(participants[1].prizeAmount))).toFixed(4)} MNT
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* 3rd Place */}
+                    {participants[2] && (
+                      <div className="bg-gradient-to-br from-orange-500/20 to-orange-600/20 border-2 border-orange-500/50 rounded-xl p-4 text-center">
+                        <div className="flex items-center justify-center mb-2">
+                          <Trophy className="w-8 h-8 text-orange-400" />
+                        </div>
+                        <div className="text-orange-400 font-bold text-lg mb-1">3rd Place</div>
+                        <div className="text-white font-semibold mb-2">
+                          {participants[2].address.slice(0, 6)}...{participants[2].address.slice(-4)}
+                        </div>
+                        <div className="text-orange-300 font-bold text-xl mb-1">
+                          {participants[2].points.toFixed(2)} pts
+                        </div>
+                        {participants[2].hasPrize && (
+                          <div className="text-orange-400 text-sm font-medium">
+                            Prize: {parseFloat(formatEther(BigInt(participants[2].prizeAmount))).toFixed(4)} MNT
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Participants Leaderboard */}
               <div className="card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="text-xl font-bold text-white">Leaderboard</h2>
-                    {pointsUpdating && (
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-white">
+                        {isLobbyEnded ? 'Final Leaderboard' : 'Leaderboard'}
+                      </h2>
+                      {isLobbyEnded && (
+                        <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-semibold rounded">
+                          LOCKED
+                        </span>
+                      )}
+                    </div>
+                    {pointsUpdating && !isLobbyEnded && (
                       <p className="text-xs text-green-400 mt-1">Updating points...</p>
                     )}
-                    {lastUpdate && !pointsUpdating && (
+                    {lastUpdate && !pointsUpdating && !isLobbyEnded && (
                       <p className="text-xs text-gray-500 mt-1">
                         Last updated: {lastUpdate.toLocaleTimeString()}
+                      </p>
+                    )}
+                    {isLobbyEnded && (
+                      <p className="text-xs text-yellow-400 mt-1">
+                        Tournament ended • Final results locked
                       </p>
                     )}
                   </div>

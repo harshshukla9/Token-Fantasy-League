@@ -7,12 +7,14 @@ interface BalanceData {
   lastUpdated: Date | null;
 }
 
-interface Transaction {
+export interface Transaction {
   address: string;
   amount: string;
   txHash: string;
   blockNumber: bigint;
   timestamp: Date;
+  type?: 'deposit' | 'withdraw'; // Optional for backward compatibility
+  status?: 'pending' | 'confirmed' | 'failed'; // Optional for backward compatibility
   createdAt: Date;
 }
 
