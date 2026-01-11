@@ -17,6 +17,26 @@ A skill-based fantasy gaming platform where you build teams of cryptocurrencies 
 5. **Deposit & Compete** → Pay entry fee and watch your team earn points
 6. **Win Prizes** → Top performers on the leaderboard win rewards
 
+## Visuals
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/83d26c2d-eb8b-410e-b6d2-c740adbba0a4" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/99c2d30d-bfac-4da7-afd6-ac19edf70b29" width="100%"/></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/72d4ffaf-d6b1-4328-829d-6d8c58414a1f" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/7b39c0ac-c36e-4228-b1f8-c9512e2d9d07" width="100%"/></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/c8891e3f-10a3-4f56-bf62-28e77ed26142" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/82073476-b458-40f5-82d0-f93358b18b7d" width="100%"/></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/adecff2e-cbe9-40c5-8ce6-7cf0014b0aad" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/498e7f83-7c19-43b8-bcc2-3c112b664905" width="100%"/></td>
+  </tr>
+</table>
+
 ## 📊 Scoring System
 
 Points are calculated based on **price percentage change** during the match window:
