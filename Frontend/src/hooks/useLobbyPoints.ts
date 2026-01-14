@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react'; 
 
 export function useLobbyPoints(lobbyId: string | null, autoUpdate: boolean = true) {
   const [updating, setUpdating] = useState(false);

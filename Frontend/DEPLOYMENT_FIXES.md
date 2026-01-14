@@ -12,7 +12,8 @@
 - Batch processing to avoid rate limiting
 
 ### 2. Missing Start Snapshots
-**Problem**: Snapshots only created within 30-second window, easily missed
+
+**Problem**: Snapshots only created within 30-second window, easily missedd
 
 **Solution**:
 - Lenient timing: Creates snapshot anytime after lobby starts
