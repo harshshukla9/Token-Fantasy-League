@@ -18,7 +18,9 @@ export function useLobbyPoints(lobbyId: string | null, autoUpdate: boolean = tru
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update points');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.details || 'Failed to update points';
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -32,7 +34,9 @@ export function useLobbyPoints(lobbyId: string | null, autoUpdate: boolean = tru
       setLastUpdate(new Date());
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update points');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update points';
+      console.error('Error updating points:', errorMessage);
+      setError(errorMessage);
       throw err;
     } finally {
       setUpdating(false);

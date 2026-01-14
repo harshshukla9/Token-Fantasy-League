@@ -4,6 +4,7 @@ import { Lobby } from '@/lib/db/models/Lobby';
 import { LobbyParticipant } from '@/lib/db/models/LobbyParticipant';
 import { PriceSnapshot } from '@/lib/db/models/PriceSnapshot';
 import { roundPriceToPrecision } from '@/lib/utils/pricePrecision';
+import { fetchCryptoPrices } from '@/lib/utils/priceFetcher';
 
 // POST - Automatically take snapshot based on lobby status
 // This should be called periodically or when lobby status changes
@@ -37,84 +38,47 @@ export async function POST(
     // Calculate end time: startTime + interval (in seconds)
     const endTime = new Date(startTime.getTime() + lobby.interval * 1000);
 
-    // Map crypto IDs to Binance symbols
-    const CRYPTO_SYMBOL_MAP: Record<string, string> = {
-      btc: 'BTCUSDT',
-      eth: 'ETHUSDT',
-      bnb: 'BNBUSDT',
-      sol: 'SOLUSDT',
-      ada: 'ADAUSDT',
-      xrp: 'XRPUSDT',
-      dot: 'DOTUSDT',
-      matic: 'MATICUSDT',
-      avax: 'AVAXUSDT',
-      link: 'LINKUSDT',
-      ltc: 'LTCUSDT',
-      atom: 'ATOMUSDT',
-      algo: 'ALGOUSDT',
-      vet: 'VETUSDT',
-      icp: 'ICPUSDT',
-    };
-
-    // Fetch current prices from Binance
-    const allCryptoIds = new Set<string>();
+    // Get participants first
     const participants = await LobbyParticipant.find({ lobbyId: lobby._id });
     
+    if (participants.length === 0) {
+      return NextResponse.json({
+        message: 'No participants in lobby yet',
+      });
+    }
+
+    // Collect all crypto IDs
+    const allCryptoIds = new Set<string>();
     participants.forEach((p) => {
       p.team.cryptos.forEach((cryptoId) => allCryptoIds.add(cryptoId));
     });
 
-    const currentPrices: { cryptoId: string; price: number }[] = [];
-
-    for (const cryptoId of Array.from(allCryptoIds)) {
-      const binanceSymbol = CRYPTO_SYMBOL_MAP[cryptoId];
-      if (!binanceSymbol) continue;
-
-      try {
-        const response = await fetch(
-          `https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`
-        );
-        if (!response.ok) continue;
-
-        const data = await response.json();
-        // Parse price and round to 8 decimal places for precision
-        const price = roundPriceToPrecision(data.price);
-        currentPrices.push({
-          cryptoId,
-          price,
-        });
-      } catch (error) {
-        console.error(`Error fetching price for ${cryptoId}:`, error);
-      }
-    }
-
-    if (currentPrices.length === 0) {
-      return NextResponse.json(
-        { error: 'Failed to fetch current prices' },
-        { status: 500 }
-      );
-    }
-
     let snapshotType: 'start' | 'end' | null = null;
     let action = '';
 
-    // Check if lobby just started (within last 30 seconds)
-    if (now >= startTime && now <= new Date(startTime.getTime() + 30000)) {
-      // Check if start snapshot already exists
+    // Check if lobby has started and needs a start snapshot
+    // More lenient timing: anytime after start time if no start snapshot exists
+    if (now >= startTime) {
       const existingStart = await PriceSnapshot.findOne({
         lobbyId: lobby._id,
         snapshotType: 'start',
       });
 
       if (!existingStart) {
-        snapshotType = 'start';
-        action = 'start';
+        // Only create start snapshot if we're still before end time
+        if (now < endTime) {
+          snapshotType = 'start';
+          action = 'start';
+          console.log(`Creating start snapshot for lobby ${lobbyId}`);
+        } else {
+          console.warn(`Lobby ${lobbyId} already ended without start snapshot`);
+        }
       }
     }
 
-    // Check if lobby just ended (within last 30 seconds)
-    if (now >= endTime && now <= new Date(endTime.getTime() + 30000)) {
-      // Check if end snapshot already exists
+    // Check if lobby has ended and needs an end snapshot
+    // More lenient timing: anytime after end time if no end snapshot exists
+    if (now >= endTime && !snapshotType) {
       const existingEnd = await PriceSnapshot.findOne({
         lobbyId: lobby._id,
         snapshotType: 'end',
@@ -123,8 +87,51 @@ export async function POST(
       if (!existingEnd) {
         snapshotType = 'end';
         action = 'end';
+        console.log(`Creating end snapshot for lobby ${lobbyId}`);
       }
     }
+
+    if (!snapshotType) {
+      return NextResponse.json({
+        message: 'No snapshot needed at this time',
+        lobbyStatus: {
+          now: now.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          hasStartSnapshot: !!(await PriceSnapshot.findOne({ lobbyId: lobby._id, snapshotType: 'start' })),
+          hasEndSnapshot: !!(await PriceSnapshot.findOne({ lobbyId: lobby._id, snapshotType: 'end' })),
+        },
+      });
+    }
+
+    // Fetch current prices using centralized utility with retry logic
+    console.log(`Fetching prices for ${allCryptoIds.size} cryptos for ${action} snapshot`);
+    
+    const priceData = await fetchCryptoPrices(Array.from(allCryptoIds), {
+      retries: 3,
+      retryDelay: 1000,
+      timeout: 8000,
+    });
+
+    if (priceData.length === 0) {
+      console.error('Failed to fetch any prices for snapshot');
+      return NextResponse.json(
+        { error: 'Failed to fetch current prices for snapshot' },
+        { status: 500 }
+      );
+    }
+
+    // Warn if some prices are missing
+    if (priceData.length < allCryptoIds.size) {
+      const fetchedIds = new Set(priceData.map(p => p.cryptoId));
+      const missing = Array.from(allCryptoIds).filter(id => !fetchedIds.has(id));
+      console.warn(`Missing prices for snapshot: ${missing.join(', ')}`);
+    }
+
+    const currentPrices = priceData.map(p => ({
+      cryptoId: p.cryptoId,
+      price: p.price,
+    }));
 
     if (!snapshotType) {
       return NextResponse.json({

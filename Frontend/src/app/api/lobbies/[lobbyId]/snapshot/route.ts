@@ -4,6 +4,7 @@ import { Lobby } from '@/lib/db/models/Lobby';
 import { LobbyParticipant } from '@/lib/db/models/LobbyParticipant';
 import { PriceSnapshot } from '@/lib/db/models/PriceSnapshot';
 import { roundPriceToPrecision } from '@/lib/utils/pricePrecision';
+import { fetchCryptoPrices, validatePrices } from '@/lib/utils/priceFetcher';
 
 // POST - Take price snapshot (start, end, or current)
 export async function POST(

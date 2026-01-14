@@ -6,6 +6,7 @@ import { PriceSnapshot } from '@/lib/db/models/PriceSnapshot';
 import { roundPriceToPrecision } from '@/lib/utils/pricePrecision';
 import { calculateLobbyStatus } from '@/lib/utils/lobbyStatus';
 import { LobbyParticipant as LobbyParticipantModel } from '@/lib/db/models/LobbyParticipant';
+import { fetchCryptoPrices } from '@/lib/utils/priceFetcher';
 
 // POST - Update points using current prices from Binance API
 // This endpoint fetches current prices and calculates points
@@ -100,74 +101,103 @@ export async function POST(
       p.team.cryptos.forEach((cryptoId) => allCryptoIds.add(cryptoId));
     });
 
-    // Fetch current prices from Binance API
+    // Fetch current prices using the centralized utility with retry logic
     const cryptoSymbols = Array.from(allCryptoIds);
-    const currentPrices: { cryptoId: string; price: number }[] = [];
+    console.log(`Fetching prices for ${cryptoSymbols.length} cryptos:`, cryptoSymbols);
+    
+    const priceData = await fetchCryptoPrices(cryptoSymbols, {
+      retries: 3,
+      retryDelay: 1000,
+      timeout: 8000, // Increased timeout for Vercel
+    });
 
-    // Map crypto IDs to Binance symbols
-    const CRYPTO_SYMBOL_MAP: Record<string, string> = {
-      btc: 'BTCUSDT',
-      eth: 'ETHUSDT',
-      bnb: 'BNBUSDT',
-      sol: 'SOLUSDT',
-      ada: 'ADAUSDT',
-      xrp: 'XRPUSDT',
-      dot: 'DOTUSDT',
-      matic: 'MATICUSDT',
-      avax: 'AVAXUSDT',
-      link: 'LINKUSDT',
-      ltc: 'LTCUSDT',
-      atom: 'ATOMUSDT',
-      algo: 'ALGOUSDT',
-      vet: 'VETUSDT',
-      icp: 'ICPUSDT',
-    };
-
-    // Fetch prices from Binance API
-    for (const cryptoId of cryptoSymbols) {
-      const binanceSymbol = CRYPTO_SYMBOL_MAP[cryptoId];
-      if (!binanceSymbol) {
-        console.warn(`No Binance symbol found for ${cryptoId}`);
-        continue;
-      }
-
-      try {
-        const response = await fetch(
-          `https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`
-        );
-        if (!response.ok) throw new Error(`Failed to fetch ${binanceSymbol}`);
-
-        const data = await response.json();
-        // Parse price and round to 8 decimal places for precision
-        const price = roundPriceToPrecision(data.price);
-        currentPrices.push({
-          cryptoId,
-          price,
-        });
-      } catch (error) {
-        console.error(`Error fetching price for ${cryptoId}:`, error);
-        // Continue with other cryptos
-      }
-    }
-
-    if (currentPrices.length === 0) {
+    if (priceData.length === 0) {
+      console.error('Failed to fetch any prices from Binance API');
       return NextResponse.json(
-        { error: 'Failed to fetch current prices' },
+        { error: 'Failed to fetch current prices. Please try again later.' },
         { status: 500 }
       );
     }
 
+    // Warn if some prices are missing
+    if (priceData.length < cryptoSymbols.length) {
+      const fetchedIds = new Set(priceData.map(p => p.cryptoId));
+      const missing = cryptoSymbols.filter(id => !fetchedIds.has(id));
+      console.warn(`Missing prices for: ${missing.join(', ')}`);
+    }
+
+    const currentPrices = priceData.map(p => ({
+      cryptoId: p.cryptoId,
+      price: p.price,
+    }));
+
     // Get start snapshots
-    const startSnapshots = await PriceSnapshot.find({
+    let startSnapshots = await PriceSnapshot.find({
       lobbyId: lobby._id,
       snapshotType: 'start',
     }).lean();
 
+    // If no start snapshot exists and lobby has started, create one now
     if (startSnapshots.length === 0) {
-      return NextResponse.json(
-        { error: 'Start snapshot not found. Please take a start snapshot first.' },
-        { status: 400 }
-      );
+      const now = new Date();
+      const startTime = new Date(lobby.startTime);
+      const endTime = new Date(startTime.getTime() + lobby.interval * 1000);
+
+      // Only create start snapshot if lobby has started but not ended
+      if (now >= startTime && now < endTime) {
+        console.log(`No start snapshot found for lobby ${lobbyId}, creating one now...`);
+        
+        try {
+          // Create snapshots for all participants with current prices
+          for (const participant of participants) {
+            const participantPrices = participant.team.cryptos.map((cryptoId) => {
+              const priceData = currentPrices.find((p) => p.cryptoId === cryptoId);
+              const price = priceData?.price ? roundPriceToPrecision(priceData.price) : 0;
+              return {
+                cryptoId,
+                price,
+                isCaptain: participant.team.captain === cryptoId,
+                isViceCaptain: participant.team.viceCaptain === cryptoId,
+              };
+            });
+
+            await PriceSnapshot.findOneAndUpdate(
+              {
+                lobbyId: lobby._id,
+                participantId: participant._id,
+                snapshotType: 'start',
+              },
+              {
+                lobbyId: lobby._id,
+                participantId: participant._id,
+                address: participant.address,
+                snapshotType: 'start',
+                prices: participantPrices,
+                timestamp: new Date(),
+              },
+              { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+          }
+
+          // Re-fetch the start snapshots
+          startSnapshots = await PriceSnapshot.find({
+            lobbyId: lobby._id,
+            snapshotType: 'start',
+          }).lean();
+
+          console.log(`Created ${startSnapshots.length} start snapshots`);
+        } catch (error) {
+          console.error('Error creating start snapshots:', error);
+        }
+      }
+      
+      // If still no snapshots, return error
+      if (startSnapshots.length === 0) {
+        return NextResponse.json(
+          { error: 'Start snapshot not found and could not be created. Lobby may have ended.' },
+          { status: 400 }
+        );
+      }
     }
 
     // Create a map of start prices by participant
